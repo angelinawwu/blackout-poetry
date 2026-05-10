@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --paper: #f3ead3;
-  --paper-edge: #e6d9b8;
+  --paper: #edece7;
+  --paper-edge: #e7e2d4;
   --ink: #1a1714;
-  --bg: #d9cfb6;
-  --bg-deep: #c9bfa6;
+  --bg: #f1f1f1;
+  --bg-deep: #dfdfdf;
   --redact: #0b0a08;
 
   --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
@@ -27,7 +27,7 @@ body {
 
 body {
   background:
-    radial-gradient(ellipse at 50% 0%, #e4d8b8 0%, var(--bg) 55%, var(--bg-deep) 100%);
+    radial-gradient(ellipse at 50% 0%, var(--bg) 0%, var(--bg-deep) 100%);
   background-attachment: fixed;
 }
 
@@ -78,9 +78,10 @@ body {
     inset 0 0 2px rgba(255, 255, 255, 0.04);
   transform-origin: left center;
   animation: paint 220ms var(--ease-out-quart) both;
-  /* Subtle irregular edge for marker feel */
+  /* Nearly-rectangular — tiny 1% vertical offset keeps the hand-drawn feel
+     without creating a visible wedge where overlapping bars meet */
   clip-path: polygon(
-    0.5% 8%, 99.5% 4%, 99.7% 96%, 0.3% 94%
+    0% 1%, 100% 0%, 100% 100%, 0% 99%
   );
 }
 
@@ -99,11 +100,10 @@ body {
 /* Button styles — understated, Archivo */
 .btn {
   font-family: var(--font-archivo), system-ui, sans-serif;
-  font-weight: 500;
+  font-weight: 400;
   font-size: 13px;
   letter-spacing: 0.01em;
   padding: 9px 16px;
-  border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
   background: color-mix(in srgb, var(--paper) 80%, transparent);
   color: var(--ink);
@@ -121,7 +121,7 @@ body {
 .btn[data-variant="primary"] {
   background: var(--ink);
   color: var(--paper);
-  border-color: var(--ink);
+  border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
 }
 @media (hover: hover) and (pointer: fine) {
   .btn[data-variant="primary"]:hover {

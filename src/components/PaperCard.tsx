@@ -48,8 +48,6 @@ export const PaperCard = forwardRef<HTMLDivElement, Props>(function PaperCard(
         minHeight: 0,
         background: "var(--paper)",
         borderRadius: 2,
-        boxShadow:
-          "0 1px 0 rgba(255,255,255,0.4) inset, 0 0 0 1px rgba(60,45,20,0.12), 0 30px 60px -20px rgba(40,30,10,0.35), 0 10px 20px -10px rgba(40,30,10,0.25)",
         transform: "rotate(-0.3deg)",
       }}
     >
@@ -62,8 +60,8 @@ export const PaperCard = forwardRef<HTMLDivElement, Props>(function PaperCard(
         <PaperTexture
           width={size.w}
           height={size.h}
-          colorBack="#f3ead3"
-          colorFront="#b8a779"
+          colorBack="#f3f0e9"
+          colorFront="#e3dccb"
           contrast={0.32}
           roughness={0.55}
           fiber={0.45}
@@ -99,7 +97,7 @@ export const PaperCard = forwardRef<HTMLDivElement, Props>(function PaperCard(
           width={size.w}
           height={size.h}
           image={FLAT_PAPER_PX}
-          colorBack="#f3ead3"
+          colorBack="#eeeae1"
           colorFront="#2b2419"
           originalColors={false}
           type="classic"
