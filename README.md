@@ -1,25 +1,39 @@
 # Blackout Poetry
 
-A small Next.js app that pulls a random page of text from a public-domain book and lets you redact words to craft a poem. Paper and halftone shader effects sit behind and above the text so exports feel like a photographed page.
+A web app for creating blackout poetry from classic literature. Click or drag across words to black them out, then export your creation as a beautiful PNG. 📜🪶
 
-## Stack
+## Features
 
-- Next.js 15 (App Router) + TypeScript + Tailwind v4
-- `@paper-design/shaders-react` — `PaperTexture` below the text, `HalftoneDots` (minimum size) on top
-- `html-to-image` — PNG export (captures WebGL canvases)
-- Fonts: **PP Writer** (local, for page text), **Archivo** (UI), **PT Mono** (small all-caps captions)
+- **Random book excerpts** — Fetches pages from Project Gutenberg classics (with fallback to built-in excerpts)
+- **Intuitive interaction** — Click or drag to black out words
+- **Paper texture** — Realistic paper card with texture and vignette effects
+- **Export to PNG** — Download your blackout poem as a high-quality image
 
-## Run
+## Tech Stack
+
+- Next.js 15 + React 19
+- TypeScript
+- Tailwind CSS 4
+- Paper Design Shaders (for paper texture effects)
+- html-to-image (for export)
+
+## Getting Started
 
 ```bash
+# Install dependencies
 npm install
+
+# Run development server
 npm run dev
 ```
 
-Open <http://localhost:3000>.
+Open [http://localhost:3000](http://localhost:3000) to get started.
 
-## How it works
+## How It Works
 
-- `GET /api/page` tries the [Gutendex](https://gutendex.com) API (a random popular Project Gutenberg book), strips the Gutenberg header/footer, and slices a random ~180-word window on a sentence boundary. If the network fails, it falls back to a bundled set of ~8 classics in `src/data/fallback-books.ts`.
-- Click a word to black it out; click again to restore. Drag across words to paint (or erase, if you start from a blacked-out word).
-- **Export PNG** captures the paper card with all shader effects baked in.
+1. The app fetches a random excerpt from Project Gutenberg via the Gutendex API
+2. Text is tokenized and displayed on a paper-styled card
+3. Click or drag across words to black them out
+4. Click "Export PNG" to download your creation
+
+The paper texture and visual effects are rendered using WebGL shaders from the Paper Design library.
