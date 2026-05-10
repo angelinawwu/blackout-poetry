@@ -160,8 +160,6 @@ export const PaperCard = forwardRef<HTMLDivElement, Props>(function PaperCard(
         }}
       />
 
-      {/* Page-turn shade — only visible while .paper-turn-* class is applied */}
-      <div aria-hidden className="turn-shade" />
     </div>
   );
 });

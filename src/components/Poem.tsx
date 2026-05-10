@@ -11,6 +11,8 @@ import { PaperCard } from "./PaperCard";
 import { MarkerCanvas, type Stroke } from "./MarkerCanvas";
 import { tokenize } from "@/lib/tokenize";
 import type { BookExcerpt } from "@/data/fallback-books";
+import { CaretRight, CaretLeft } from "@phosphor-icons/react";
+import { toPng } from "html-to-image";
 
 type DragState = {
   active: boolean;
@@ -21,15 +23,14 @@ type DragState = {
 };
 
 type Phase = "redact" | "marker";
-type TurnState = "idle" | "out" | "in";
 
 const MARKER_PALETTE: { name: string; color: string }[] = [
-  { name: "Charcoal", color: "#2a2724" },
-  { name: "Oxblood", color: "#7a2a26" },
-  { name: "Ochre", color: "#b88a2a" },
-  { name: "Navy", color: "#1f3a5f" },
-  { name: "Sage", color: "#5b6e4a" },
-  { name: "Plum", color: "#5a3a55" },
+  { name: "Black", color: "#111111" },
+  { name: "Red", color: "#e02b2b" },
+  { name: "Blue", color: "#1d4ed8" },
+  { name: "Yellow", color: "#f5b800" },
+  { name: "Green", color: "#22a06b" },
+  { name: "Magenta", color: "#c026d3" },
 ];
 
 const prefersReducedMotion = () =>
@@ -48,8 +49,9 @@ export function Poem() {
     MARKER_PALETTE[0].color,
   );
   const [strokes, setStrokes] = useState<Stroke[]>([]);
-  const [turn, setTurn] = useState<TurnState>("idle");
-  const [flashing, setFlashing] = useState(false);
+  const [turning, setTurning] = useState(false);
+  const [prevSnapshot, setPrevSnapshot] = useState<string | null>(null);
+  const [exportFloatSrc, setExportFloatSrc] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -74,11 +76,15 @@ export function Poem() {
   const excerptRef = useRef<BookExcerpt | null>(null);
   excerptRef.current = excerpt;
 
+  const turningRef = useRef(false);
+
   const fetchPage = useCallback(async () => {
-    if (turn !== "idle") return;
-    setLoading(true);
+    if (turningRef.current) return;
     const hasExisting = excerptRef.current != null;
-    if (!hasExisting || prefersReducedMotion()) {
+    const card = cardRef.current;
+
+    if (!hasExisting || prefersReducedMotion() || !card) {
+      setLoading(true);
       try {
         await loadExcerpt();
       } catch {
@@ -88,21 +94,48 @@ export function Poem() {
       }
       return;
     }
+
+    setLoading(true);
+    let snapshotUrl: string | null = null;
     try {
-      // Curl out
-      setTurn("out");
-      await new Promise((r) => setTimeout(r, 280));
+      // Snapshot current page BEFORE swapping content.
+      snapshotUrl = await toPng(card, {
+        pixelRatio: 1.5,
+        cacheBust: true,
+        backgroundColor: undefined,
+        filter: (node) => {
+          if (node instanceof HTMLElement) {
+            if (node.hasAttribute("data-marker-canvas")) return false;
+          }
+          return true;
+        },
+      });
+    } catch {
+      snapshotUrl = null;
+    }
+
+    try {
+      // Load new excerpt while old snapshot is still in memory.
       await loadExcerpt();
-      // Curl in
-      setTurn("in");
-      await new Promise((r) => setTimeout(r, 320));
     } catch {
       // swallow
-    } finally {
-      setTurn("idle");
-      setLoading(false);
     }
-  }, [loadExcerpt, turn]);
+
+    setLoading(false);
+
+    if (!snapshotUrl) return;
+
+    // Trigger the curl: snapshot overlays the (now-new) card and animates out.
+    turningRef.current = true;
+    setTurning(true);
+    setPrevSnapshot(snapshotUrl);
+  }, [loadExcerpt]);
+
+  const handleCurlEnd = () => {
+    setPrevSnapshot(null);
+    setTurning(false);
+    turningRef.current = false;
+  };
 
   const didInitRef = useRef(false);
   useEffect(() => {
@@ -307,7 +340,6 @@ export function Poem() {
       //    (card.children[1] = <div class="relative z-10 h-full">). That div
       //    has no background of its own, so the output is transparent except
       //    for text and redaction marks.
-      const { toPng } = await import("html-to-image");
       const contentWrapper = card.children[1] as HTMLElement | null;
       if (contentWrapper) {
         const textUrl = await toPng(contentWrapper, {
@@ -362,10 +394,9 @@ export function Poem() {
       a.click();
       a.remove();
 
-      // Feedback: flash overlay + button "Saved" state.
+      // Feedback: duplicate page floats up & fades + button "Saved" state.
       if (!prefersReducedMotion()) {
-        setFlashing(true);
-        window.setTimeout(() => setFlashing(false), 520);
+        setExportFloatSrc(dataUrl);
       }
       setJustSaved(true);
       window.setTimeout(() => setJustSaved(false), 1400);
@@ -381,13 +412,14 @@ export function Poem() {
     else setRedacted(new Set());
   };
 
-  const togglePhase = () => {
-    if (turn !== "idle") return;
-    setPhase((p) => (p === "redact" ? "marker" : "redact"));
+  const goDraw = () => {
+    if (turning) return;
+    setPhase("marker");
   };
-
-  const turnClass =
-    turn === "out" ? "paper-turn-out" : turn === "in" ? "paper-turn-in" : "";
+  const goPoem = () => {
+    if (turning) return;
+    setPhase("redact");
+  };
 
   const canClear =
     phase === "marker" ? strokes.length > 0 : redacted.size > 0;
@@ -410,7 +442,7 @@ export function Poem() {
       </header>
 
       {/* Paper card */}
-      <PaperCard ref={cardRef} className={turnClass}>
+      <PaperCard ref={cardRef} className={turning ? "page-fade-in" : ""}>
         <div
           ref={bodyRef}
           className={`relative h-full p-6 sm:p-10 overflow-hidden flex flex-col phase-${phase} ${
@@ -514,11 +546,55 @@ export function Poem() {
           </aside>
         )}
 
-        {/* Export flash overlay */}
-        <div
-          aria-hidden
-          className={`flash-overlay ${flashing ? "is-flashing" : ""}`}
-        />
+        {/* Previous-page snapshot curling away */}
+        {prevSnapshot && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            aria-hidden
+            alt=""
+            src={prevSnapshot}
+            className="page-curl-out"
+            onAnimationEnd={handleCurlEnd}
+          />
+        )}
+
+        {/* Exported page lifts off and fades */}
+        {exportFloatSrc && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            aria-hidden
+            alt=""
+            src={exportFloatSrc}
+            className="export-float"
+            onAnimationEnd={() => setExportFloatSrc(null)}
+          />
+        )}
+
+        {/* Arrow nav — swap modes (CaretRight enters draw, CaretLeft exits) */}
+        {phase === "redact" && (
+          <button
+            type="button"
+            className="arrow-nav right"
+            onClick={goDraw}
+            disabled={!excerpt || turning}
+            aria-label="Switch to draw mode"
+          >
+            <span className="arrow-label">Draw</span>
+            <CaretRight size={18} weight="regular" />
+          </button>
+        )}
+        {phase === "marker" && (
+          <button
+            type="button"
+            className="arrow-nav left"
+            onClick={goPoem}
+            disabled={!excerpt || turning}
+            aria-label="Back to poem"
+          >
+            <span className="arrow-label">Poem</span>
+            <CaretLeft size={18} weight="regular" />
+          </button>
+        )}
       </PaperCard>
 
       {/* Controls */}
@@ -527,7 +603,7 @@ export function Poem() {
           type="button"
           className="btn"
           onClick={fetchPage}
-          disabled={loading || turn !== "idle"}
+          disabled={loading || turning}
         >
           {loading ? "Turning page…" : "Find a different page"}
         </button>
@@ -548,14 +624,6 @@ export function Poem() {
           disabled={exporting || !excerpt || justSaved}
         >
           {justSaved ? "✓ Saved" : exporting ? "Exporting…" : "Export PNG"}
-        </button>
-        <button
-          type="button"
-          className="btn"
-          onClick={togglePhase}
-          disabled={!excerpt || turn !== "idle"}
-        >
-          {phase === "redact" ? "Done → Draw" : "Back to poem"}
         </button>
       </div>
 

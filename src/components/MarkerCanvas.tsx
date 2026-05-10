@@ -173,6 +173,10 @@ export const MarkerCanvas = forwardRef<MarkerCanvasHandle, Props>(
       }
     };
 
+    // Build a cursor SVG tinted with the active marker color.
+    const cursorSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><circle cx='10' cy='10' r='6' fill='${color}' fill-opacity='0.7' stroke='${color}' stroke-opacity='0.9' stroke-width='1'/></svg>`;
+    const cursorUrl = `url("data:image/svg+xml;utf8,${encodeURIComponent(cursorSvg)}") 10 10, crosshair`;
+
     return (
       <div
         ref={wrapRef}
@@ -181,9 +185,7 @@ export const MarkerCanvas = forwardRef<MarkerCanvasHandle, Props>(
         style={{
           zIndex: 15,
           pointerEvents: active ? "auto" : "none",
-          cursor: active
-            ? "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><circle cx='9' cy='9' r='5' fill='black'/></svg>\") 9 9, crosshair"
-            : "default",
+          cursor: active ? cursorUrl : "default",
           touchAction: active ? "none" : "auto",
         }}
         onPointerDown={onPointerDown}

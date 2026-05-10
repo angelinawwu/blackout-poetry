@@ -112,8 +112,8 @@ body {
 }
 
 @keyframes paint {
-  from { transform: scaleX(0); opacity: 0.8; }
-  to   { transform: scaleX(1); opacity: 1; }
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -165,78 +165,109 @@ body {
   to   { opacity: 1; transform: translateY(0) rotate(-0.3deg); }
 }
 
-/* Page perspective for turn animation */
-.page-stage {
-  perspective: 1600px;
-  perspective-origin: 50% 40%;
-}
-
-/* Page turn transition — runs in two halves driven by JS class swap */
-.paper-turn-out {
-  animation: turnOut 280ms cubic-bezier(.55, .085, .68, .53) forwards;
-  transform-origin: left center;
-  transform-style: preserve-3d;
-  will-change: transform, opacity;
-}
-.paper-turn-in {
-  animation: turnIn 320ms var(--ease-out-quart) forwards;
-  transform-origin: left center;
-  transform-style: preserve-3d;
-  will-change: transform, opacity;
-}
-@keyframes turnOut {
-  from { transform: rotate(-0.3deg) rotateY(0deg); opacity: 1; }
-  to   { transform: rotate(-0.3deg) rotateY(-78deg); opacity: 0.35; }
-}
-@keyframes turnIn {
-  from { transform: rotate(-0.3deg) rotateY(78deg); opacity: 0.35; }
-  to   { transform: rotate(-0.3deg) rotateY(0deg); opacity: 1; }
-}
-/* Shadow sweep overlay during turn */
-.paper-turn-out .turn-shade,
-.paper-turn-in .turn-shade {
-  opacity: 1;
-}
-.turn-shade {
+/* Page-turn: previous-page snapshot curls away from bottom-right corner */
+.page-curl-out {
   position: absolute;
   inset: 0;
-  pointer-events: none;
-  z-index: 22;
+  width: 100%;
+  height: 100%;
   border-radius: inherit;
-  background: linear-gradient(
-    to right,
-    rgba(0, 0, 0, 0.32) 0%,
-    rgba(0, 0, 0, 0.05) 35%,
-    transparent 70%
-  );
-  opacity: 0;
-  transition: opacity 200ms ease;
-  mix-blend-mode: multiply;
+  pointer-events: none;
+  z-index: 40;
+  transform-origin: 100% 100%;
+  filter: drop-shadow(-8px -4px 14px rgba(0, 0, 0, 0.18));
+  animation: pageCurlOut 700ms var(--ease-out-quart) forwards;
+  will-change: transform, opacity, clip-path;
+}
+@keyframes pageCurlOut {
+  0% {
+    opacity: 1;
+    transform: rotate(0deg) translate(0, 0);
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+  }
+  60% {
+    opacity: 0.85;
+    transform: rotate(-6deg) translate(3%, 2%);
+    clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 60% 100%, 0% 100%);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(-14deg) translate(10%, 8%);
+    clip-path: polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%, 0% 100%);
+  }
 }
 
-/* Export flash overlay */
-.flash-overlay {
+/* New page rises in behind the curl */
+.page-fade-in {
+  animation: pageFadeIn 420ms var(--ease-out-quart) both;
+}
+@keyframes pageFadeIn {
+  from { opacity: 0.2; }
+  to   { opacity: 1; }
+}
+
+/* Export float — duplicate page lifts and fades away, original stays put */
+.export-float {
   position: absolute;
   inset: 0;
-  pointer-events: none;
-  z-index: 30;
-  background: #ffffff;
+  width: 100%;
+  height: 100%;
   border-radius: inherit;
-  opacity: 0;
+  pointer-events: none;
+  z-index: 45;
+  animation: exportFloat 900ms var(--ease-out-quart) forwards;
+  will-change: transform, opacity;
+  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.18));
 }
-.flash-overlay.is-flashing {
-  animation: flashPulse 520ms var(--ease-out-quart);
-}
-@keyframes flashPulse {
-  0%   { opacity: 0; }
-  18%  { opacity: 0.65; }
-  100% { opacity: 0; }
+@keyframes exportFloat {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-72px) scale(1.03); }
 }
 
 /* Export button success state */
 .btn[data-state="saved"] {
   background: color-mix(in srgb, var(--ink) 78%, #2f6b3a) !important;
   color: var(--paper);
+}
+
+/* Arrow nav (page-mode swap) */
+.arrow-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  padding: 8px 6px;
+  color: var(--ink);
+  font-family: var(--font-archivo), system-ui, sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 200ms ease, transform 200ms var(--ease-out-quart);
+  z-index: 30;
+}
+.arrow-nav.right { left: 100%; margin-left: 8px; }
+.arrow-nav.left  { right: 100%; margin-right: 8px; flex-direction: row-reverse; }
+@media (hover: hover) and (pointer: fine) {
+  .arrow-nav:hover:not(:disabled) {
+    opacity: 1;
+  }
+  .arrow-nav.right:hover:not(:disabled) { transform: translate(3px, -50%); }
+  .arrow-nav.left:hover:not(:disabled)  { transform: translate(-3px, -50%); }
+}
+.arrow-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+.arrow-nav .arrow-label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 10px;
+}
+@media (max-width: 760px) {
+  .arrow-nav.right { left: auto; right: 6px; margin-left: 0; }
+  .arrow-nav.left  { right: auto; left: 6px; margin-right: 0; }
 }
 
 /* Marker palette */
@@ -297,9 +328,9 @@ body {
 .phase-marker .word { cursor: default; }
 
 @media (prefers-reduced-motion: reduce) {
-  .paper-turn-out,
-  .paper-turn-in { animation: none !important; }
-  .flash-overlay.is-flashing { animation: none; }
+  .page-curl-out,
+  .page-fade-in,
+  .export-float { animation: none !important; }
   .palette,
   .swatch { animation: none; }
 }
