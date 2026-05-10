@@ -442,7 +442,7 @@ export function Poem() {
       </header>
 
       {/* Paper card */}
-      <PaperCard ref={cardRef} className={turning ? "page-fade-in" : ""}>
+      <PaperCard ref={cardRef}>
         <div
           ref={bodyRef}
           className={`relative h-full p-6 sm:p-10 overflow-hidden flex flex-col phase-${phase} ${
