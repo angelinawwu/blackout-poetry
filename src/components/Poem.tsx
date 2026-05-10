@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { PaperCard } from "./PaperCard";
 import { tokenize } from "@/lib/tokenize";
 import type { BookExcerpt } from "@/data/fallback-books";
@@ -20,6 +26,9 @@ export function Poem() {
   const [exporting, setExporting] = useState(false);
   const [painting, setPainting] = useState(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const paragraphRef = useRef<HTMLParagraphElement | null>(null);
+  const [visibleWordCount, setVisibleWordCount] = useState<number>(Infinity);
   const dragRef = useRef<DragState>({
     active: false,
     mode: null,
@@ -47,6 +56,46 @@ export function Poem() {
   }, [fetchPage]);
 
   const tokens = excerpt ? tokenize(excerpt.text) : [];
+
+  // Measure: find the largest word index whose span still fits inside the
+  // body container, then clip the token list to that index. Re-runs whenever
+  // the excerpt changes or the container resizes.
+  useLayoutEffect(() => {
+    if (!excerpt) return;
+    const body = bodyRef.current;
+    if (!body || !paragraphRef.current) return;
+
+    const measure = () => {
+      // Reset to render all tokens, then measure.
+      setVisibleWordCount(Infinity);
+      // Defer measurement until after the browser lays out the full text.
+      requestAnimationFrame(() => {
+        if (!bodyRef.current || !paragraphRef.current) return;
+        const containerRect = bodyRef.current.getBoundingClientRect();
+        const maxBottom = containerRect.bottom;
+        const spans = paragraphRef.current.querySelectorAll<HTMLElement>(
+          "[data-word-idx]",
+        );
+        if (spans.length === 0) return;
+        let lastFitIdx = -1;
+        for (const span of spans) {
+          const r = span.getBoundingClientRect();
+          if (r.bottom <= maxBottom + 0.5) {
+            const v = span.getAttribute("data-word-idx");
+            if (v != null) lastFitIdx = Math.max(lastFitIdx, Number(v));
+          } else {
+            break;
+          }
+        }
+        setVisibleWordCount(lastFitIdx + 1);
+      });
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(body);
+    return () => ro.disconnect();
+  }, [excerpt]);
 
   const applyToIdx = useCallback(
     (idx: number, mode: "paint" | "erase") => {
@@ -159,9 +208,9 @@ export function Poem() {
   const clearAll = () => setRedacted(new Set());
 
   return (
-    <main className="min-h-dvh flex flex-col items-center px-6 py-10 sm:py-16">
+    <main className="h-dvh overflow-hidden flex flex-col items-center px-6 py-4 sm:py-6">
       {/* Header */}
-      <header className="w-full max-w-[720px] flex items-center justify-between mb-10">
+      <header className="w-full max-w-[720px] flex items-center justify-between mb-3 shrink-0">
         <span className="caption">Blackout Poetry</span>
         <span className="caption text-right">
           Project Gutenberg · English classics
@@ -171,13 +220,13 @@ export function Poem() {
       {/* Paper card */}
       <PaperCard ref={cardRef}>
         <div
-          className={`relative p-10 sm:p-14 ${painting ? "painting" : ""}`}
+          ref={bodyRef}
+          className={`relative h-full p-6 sm:p-10 overflow-hidden ${painting ? "painting" : ""}`}
           style={{
             fontFamily: "var(--font-pp-writer), Georgia, serif",
-            fontSize: "18px",
-            lineHeight: 1.9,
+            fontSize: "16px",
+            lineHeight: 1.75,
             color: "var(--ink)",
-            minHeight: 700,
           }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -187,7 +236,7 @@ export function Poem() {
           {/* Attribution on the page */}
           {excerpt && (
             <div
-              className="caption mb-8"
+              className="caption mb-4"
               style={{ opacity: 0.55 }}
             >
               From <span style={{ fontStyle: "normal" }}>{excerpt.title}</span>
@@ -204,15 +253,27 @@ export function Poem() {
           )}
 
           {excerpt && (
-            <p style={{ margin: 0 }}>
+            <p ref={paragraphRef} style={{ margin: 0 }}>
               {tokens.map((t, i) => {
                 if (t.kind === "space") {
+                  // Hide trailing whitespace that follows the last visible word.
+                  const nextWord = tokens
+                    .slice(i + 1)
+                    .find((n) => n.kind === "word");
+                  if (
+                    nextWord &&
+                    nextWord.kind === "word" &&
+                    nextWord.idx >= visibleWordCount
+                  ) {
+                    return null;
+                  }
                   return (
                     <span key={i} style={{ whiteSpace: "pre-wrap" }}>
                       {t.text}
                     </span>
                   );
                 }
+                if (t.idx >= visibleWordCount) return null;
                 const isR = redacted.has(t.idx);
                 return (
                   <span
@@ -230,7 +291,7 @@ export function Poem() {
       </PaperCard>
 
       {/* Controls */}
-      <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-3 shrink-0">
         <button
           type="button"
           className="btn"
@@ -258,7 +319,7 @@ export function Poem() {
         </button>
       </div>
 
-      <footer className="mt-16 caption" style={{ opacity: 0.5 }}>
+      <footer className="mt-3 caption shrink-0" style={{ opacity: 0.5 }}>
         Click or drag across words to black them out
       </footer>
     </main>

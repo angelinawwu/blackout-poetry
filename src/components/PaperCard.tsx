@@ -41,10 +41,11 @@ export const PaperCard = forwardRef<HTMLDivElement, Props>(function PaperCard(
         if (typeof ref === "function") ref(node);
         else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
       }}
-      className="relative isolate card-enter"
+      className="relative isolate card-enter min-h-0"
       style={{
         width: "min(640px, calc(100vw - 48px))",
-        minHeight: 800,
+        flex: "1 1 0%",
+        minHeight: 0,
         background: "var(--paper)",
         borderRadius: 2,
         boxShadow:
@@ -81,7 +82,7 @@ export const PaperCard = forwardRef<HTMLDivElement, Props>(function PaperCard(
       </div>
 
       {/* Content */}
-      <div className="relative z-10">{children}</div>
+      <div className="relative z-10 h-full">{children}</div>
 
       {/* Halftone dots on top — tiny speckle, low opacity, multiply */}
       <div

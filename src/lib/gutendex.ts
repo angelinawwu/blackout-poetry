@@ -37,40 +37,30 @@ function cleanGutenbergText(raw: string): string {
   return text.trim();
 }
 
-function extractWindow(text: string, targetWords = 180): string {
-  // Collapse paragraphs into sentences, pick a random sentence-bounded window.
+const CHUNK_SIZE = 3000;
+
+function extractWindow(text: string): string {
+  // Normalize whitespace but preserve paragraph breaks as single spaces.
   const normalized = text
-    .replace(/\n{2,}/g, " \u00B6 ")
+    .replace(/\n{2,}/g, " ")
     .replace(/\n/g, " ")
     .replace(/\s+/g, " ")
-    .replace(/\s*\u00B6\s*/g, " ")
     .trim();
 
-  const sentences = normalized.match(/[^.!?]+[.!?]+["']?/g);
-  if (!sentences || sentences.length < 4) {
-    // Fall back to a raw word-count window.
-    const words = normalized.split(" ");
-    const start = Math.max(
-      0,
-      Math.floor(Math.random() * Math.max(1, words.length - targetWords - 50))
-    );
-    return words.slice(start, start + targetWords).join(" ");
-  }
+  if (normalized.length <= CHUNK_SIZE) return normalized;
 
-  // Avoid the first 15% of the book (title pages, prefaces often survive cleaning).
-  const minIdx = Math.floor(sentences.length * 0.15);
-  const maxIdx = Math.max(minIdx + 1, Math.floor(sentences.length * 0.85));
-  const startIdx = minIdx + Math.floor(Math.random() * (maxIdx - minIdx));
+  // Truly random offset anywhere in the body.
+  const maxStart = normalized.length - CHUNK_SIZE;
+  let start = Math.floor(Math.random() * maxStart);
+  let end = start + CHUNK_SIZE;
 
-  let out: string[] = [];
-  let count = 0;
-  for (let i = startIdx; i < sentences.length && count < targetWords; i++) {
-    const s = sentences[i].trim();
-    if (!s) continue;
-    out.push(s);
-    count += s.split(/\s+/).length;
-  }
-  return out.join(" ").trim();
+  // Snap edges to the nearest word boundary so we don't cut a word in half.
+  const nextSpace = normalized.indexOf(" ", start);
+  if (nextSpace !== -1 && nextSpace - start < 40) start = nextSpace + 1;
+  const prevSpace = normalized.lastIndexOf(" ", end);
+  if (prevSpace > start) end = prevSpace;
+
+  return normalized.slice(start, end).trim();
 }
 
 async function fetchText(url: string): Promise<string | null> {
@@ -95,7 +85,7 @@ async function tryGutendex(): Promise<BookExcerpt | null> {
   const cached = CACHE.get(id);
   let bookMeta: GutendexBook | null = null;
   try {
-    const metaRes = await fetch(`https://gutendex.com/books/${id}`, {
+    const metaRes = await fetch(`https://gutendex.com/books/${id}/`, {
       signal: AbortSignal.timeout(6000),
     });
     if (!metaRes.ok) return null;
@@ -120,7 +110,7 @@ async function tryGutendex(): Promise<BookExcerpt | null> {
 
   const cleaned = cleanGutenbergText(raw);
   const excerpt = extractWindow(cleaned);
-  if (excerpt.split(/\s+/).length < 80) return null;
+  if (excerpt.length < 400) return null;
 
   return {
     title: bookMeta.title.replace(/\s*[:;]\s*.+$/, ""),
@@ -134,5 +124,9 @@ export async function getRandomExcerpt(): Promise<BookExcerpt> {
     const book = await tryGutendex();
     if (book) return book;
   }
-  return pickRandom(fallbackBooks);
+  // Ensure fallback excerpts are long enough to fill the page by tiling.
+  const pick = pickRandom(fallbackBooks);
+  let text = pick.text;
+  while (text.length < 2500) text += " " + pick.text;
+  return { ...pick, text };
 }
