@@ -76,6 +76,13 @@ async function fetchText(url: string): Promise<string | null> {
   }
 }
 
+function formatAuthor(name: string | undefined): string {
+  if (!name) return "Unknown";
+  const cleaned = name.replace(/\s*\([^)]*\)/g, "").trim();
+  const parts = cleaned.split(",").map((s) => s.trim());
+  return parts.length === 2 ? `${parts[1]} ${parts[0]}` : cleaned || "Unknown";
+}
+
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -114,7 +121,7 @@ async function tryGutendex(): Promise<BookExcerpt | null> {
 
   return {
     title: bookMeta.title.replace(/\s*[:;]\s*.+$/, ""),
-    author: bookMeta.authors[0]?.name ?? "Unknown",
+    author: formatAuthor(bookMeta.authors[0]?.name),
     text: excerpt,
   };
 }

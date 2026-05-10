@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
-import { Archivo, PT_Mono } from "next/font/google";
+import { Archivo, Cardo, PT_Mono } from "next/font/google";
 import "./globals.css";
 
-const ppWriter = localFont({
-  src: [
-    { path: "./fonts/PPWriter-Book.otf", weight: "400", style: "normal" },
-    { path: "./fonts/PPWriter-RegularItalic.otf", weight: "400", style: "italic" },
-  ],
-  variable: "--font-pp-writer",
+const cardo = Cardo({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-cardo",
   display: "swap",
 });
 
@@ -39,7 +36,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${ppWriter.variable} ${archivo.variable} ${ptMono.variable} antialiased`}
+        className={`${cardo.variable} ${archivo.variable} ${ptMono.variable} antialiased`}
       >
         {children}
       </body>

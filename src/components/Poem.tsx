@@ -238,7 +238,7 @@ export function Poem() {
             Number.isFinite(visibleWordCount) ? "justify-center" : "justify-start"
           } ${painting ? "painting" : ""}`}
           style={{
-            fontFamily: "var(--font-pp-writer), Georgia, serif",
+            fontFamily: "var(--font-cardo), Georgia, serif",
             fontSize: "16px",
             lineHeight: 1.75,
             color: "var(--ink)",
