@@ -23,16 +23,16 @@ const ptMono = PT_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Blackout Poetry",
+  title: "blackout poetry",
   description:
-    "Redact pages from public-domain classics into your own blackout poetry.",
+    "redact pages from public-domain classics to create your own blackout poetry",
   openGraph: {
     images: [
       {
         url: "/PreviewImage.png",
         width: 1200,
         height: 630,
-        alt: "Blackout Poetry",
+        alt: "blackout poetry",
       },
     ],
   },
