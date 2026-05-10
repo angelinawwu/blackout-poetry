@@ -25,6 +25,7 @@ export function Poem() {
   const [redacted, setRedacted] = useState<Set<number>>(new Set());
   const [exporting, setExporting] = useState(false);
   const [painting, setPainting] = useState(false);
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const paragraphRef = useRef<HTMLParagraphElement | null>(null);
@@ -278,11 +279,14 @@ export function Poem() {
                 }
                 if (t.idx >= visibleWordCount) return null;
                 const isR = redacted.has(t.idx);
+                const isHovered = hoveredIdx === t.idx;
                 return (
                   <span
                     key={i}
                     data-word-idx={t.idx}
-                    className={`word ${isR ? "is-redacted" : ""}`}
+                    className={`word ${isR ? "is-redacted" : ""} ${isHovered ? "is-hover-preview" : ""}`}
+                    onPointerEnter={() => setHoveredIdx(t.idx)}
+                    onPointerLeave={() => setHoveredIdx(null)}
                   >
                     {t.text}
                   </span>

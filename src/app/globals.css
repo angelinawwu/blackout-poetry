@@ -79,6 +79,27 @@ body {
   );
 }
 
+/* Hover preview for paint mode (not redacted) */
+.word.is-hover-preview:not(.is-redacted)::after {
+  content: "";
+  position: absolute;
+  inset: 0.06em -0.22em 0.04em -0.22em;
+  background: color-mix(in srgb, var(--redact) 40%, transparent);
+  border-radius: 1px;
+  clip-path: polygon(
+    0% 1%, 100% 0%, 100% 100%, 0% 99%
+  );
+  pointer-events: none;
+}
+
+/* Hover preview for erase mode (already redacted) */
+.word.is-hover-preview.is-redacted {
+  color: var(--ink);
+}
+.word.is-hover-preview.is-redacted::after {
+  opacity: 0.4;
+}
+
 @keyframes paint {
   from { transform: scaleX(0); opacity: 0.8; }
   to   { transform: scaleX(1); opacity: 1; }
