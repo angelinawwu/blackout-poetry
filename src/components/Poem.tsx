@@ -8,8 +8,11 @@ import {
   useState,
 } from "react";
 import { PaperCard } from "./PaperCard";
+import { MarkerCanvas, type Stroke } from "./MarkerCanvas";
 import { tokenize } from "@/lib/tokenize";
 import type { BookExcerpt } from "@/data/fallback-books";
+import { CaretRight, CaretLeft, ArrowUUpLeft, ArrowUUpRight } from "@phosphor-icons/react";
+import { toPng } from "html-to-image";
 
 type DragState = {
   active: boolean;
@@ -19,6 +22,21 @@ type DragState = {
   touched: Set<number>;
 };
 
+type Phase = "redact" | "marker";
+
+const MARKER_PALETTE: { name: string; color: string }[] = [
+  { name: "Black", color: "#111111" },
+  { name: "Red", color: "#e02b2b" },
+  { name: "Blue", color: "#1d4ed8" },
+  { name: "Yellow", color: "#f5b800" },
+  { name: "Green", color: "#22a06b" },
+  { name: "Magenta", color: "#c026d3" },
+];
+
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" &&
+  window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
 export function Poem() {
   const [excerpt, setExcerpt] = useState<BookExcerpt | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,6 +44,17 @@ export function Poem() {
   const [exporting, setExporting] = useState(false);
   const [painting, setPainting] = useState(false);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [phase, setPhase] = useState<Phase>("redact");
+  const [markerColor, setMarkerColor] = useState<string>(
+    MARKER_PALETTE[0].color,
+  );
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [strokeHistory, setStrokeHistory] = useState<Stroke[][]>([]);
+  const [strokeFuture, setStrokeFuture] = useState<Stroke[][]>([]);
+  const [turning, setTurning] = useState(false);
+  const [prevSnapshot, setPrevSnapshot] = useState<string | null>(null);
+  const [exportFloatSrc, setExportFloatSrc] = useState<string | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const paragraphRef = useRef<HTMLParagraphElement | null>(null);
@@ -38,21 +67,113 @@ export function Poem() {
     touched: new Set(),
   });
 
-  const fetchPage = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/page", { cache: "no-store" });
-      const data = (await res.json()) as BookExcerpt;
-      setExcerpt(data);
-      setRedacted(new Set());
-    } catch {
-      // swallow
-    } finally {
-      setLoading(false);
-    }
+  const strokesRef = useRef<Stroke[]>([]);
+  strokesRef.current = strokes;
+
+  const loadExcerpt = useCallback(async () => {
+    const res = await fetch("/api/page", { cache: "no-store" });
+    const data = (await res.json()) as BookExcerpt;
+    setExcerpt(data);
+    setRedacted(new Set());
+    setStrokes([]);
+    setStrokeHistory([]);
+    setStrokeFuture([]);
   }, []);
 
+  const commitStrokes = useCallback((next: Stroke[]) => {
+    setStrokeHistory((h) => [...h, strokesRef.current]);
+    setStrokeFuture([]);
+    setStrokes(next);
+  }, []);
+
+  const undoStrokes = useCallback(() => {
+    setStrokeHistory((h) => {
+      if (h.length === 0) return h;
+      const prev = h[h.length - 1];
+      setStrokeFuture((f) => [...f, strokesRef.current]);
+      setStrokes(prev);
+      return h.slice(0, -1);
+    });
+  }, []);
+
+  const redoStrokes = useCallback(() => {
+    setStrokeFuture((f) => {
+      if (f.length === 0) return f;
+      const next = f[f.length - 1];
+      setStrokeHistory((h) => [...h, strokesRef.current]);
+      setStrokes(next);
+      return f.slice(0, -1);
+    });
+  }, []);
+
+  const excerptRef = useRef<BookExcerpt | null>(null);
+  excerptRef.current = excerpt;
+
+  const turningRef = useRef(false);
+
+  const fetchPage = useCallback(async () => {
+    if (turningRef.current) return;
+    const hasExisting = excerptRef.current != null;
+    const card = cardRef.current;
+
+    if (!hasExisting || prefersReducedMotion() || !card) {
+      setLoading(true);
+      try {
+        await loadExcerpt();
+      } catch {
+        // swallow
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    setLoading(true);
+    let snapshotUrl: string | null = null;
+    try {
+      // Snapshot current page BEFORE swapping content.
+      snapshotUrl = await toPng(card, {
+        pixelRatio: 1.5,
+        cacheBust: true,
+        backgroundColor: undefined,
+        filter: (node) => {
+          if (node instanceof HTMLElement) {
+            if (node.hasAttribute("data-marker-canvas")) return false;
+          }
+          return true;
+        },
+      });
+    } catch {
+      snapshotUrl = null;
+    }
+
+    try {
+      // Load new excerpt while old snapshot is still in memory.
+      await loadExcerpt();
+    } catch {
+      // swallow
+    }
+
+    setLoading(false);
+
+    if (!snapshotUrl) return;
+
+    // Trigger the curl: snapshot overlays the (now-new) card and animates out.
+    turningRef.current = true;
+    setTurning(true);
+    setPrevSnapshot(snapshotUrl);
+  }, [loadExcerpt]);
+
+  const handleCurlEnd = () => {
+    setPrevSnapshot(null);
+    setTurning(false);
+    turningRef.current = false;
+  };
+
+  const didInitRef = useRef(false);
   useEffect(() => {
+    if (didInitRef.current) return;
+    didInitRef.current = true;
     fetchPage();
   }, [fetchPage]);
 
@@ -252,7 +373,6 @@ export function Poem() {
       //    (card.children[1] = <div class="relative z-10 h-full">). That div
       //    has no background of its own, so the output is transparent except
       //    for text and redaction marks.
-      const { toPng } = await import("html-to-image");
       const contentWrapper = card.children[1] as HTMLElement | null;
       if (contentWrapper) {
         const textUrl = await toPng(contentWrapper, {
@@ -260,6 +380,14 @@ export function Poem() {
           cacheBust: true,
           backgroundColor: "transparent",
           skipFonts: false,
+          // Skip the marker canvas — it's redrawn from the canvas snapshot
+          // loop below at correct alpha. html-to-image would double it.
+          filter: (node) => {
+            if (node instanceof HTMLElement) {
+              if (node.hasAttribute("data-marker-canvas")) return false;
+            }
+            return true;
+          },
         });
         const textImg = await loadImg(textUrl);
         ctx.drawImage(textImg, 0, 0, W, H);
@@ -298,6 +426,13 @@ export function Poem() {
       document.body.appendChild(a);
       a.click();
       a.remove();
+
+      // Feedback: duplicate page floats up & fades + button "Saved" state.
+      if (!prefersReducedMotion()) {
+        setExportFloatSrc(dataUrl);
+      }
+      setJustSaved(true);
+      window.setTimeout(() => setJustSaved(false), 1400);
     } catch (err) {
       console.error("Export failed", err);
     } finally {
@@ -305,10 +440,45 @@ export function Poem() {
     }
   };
 
-  const clearAll = () => setRedacted(new Set());
+  const clearAll = () => {
+    setRedacted(new Set());
+    if (strokesRef.current.length > 0) commitStrokes([]);
+  };
+
+  const canUndo = phase === "marker" && strokeHistory.length > 0;
+  const canRedo = phase === "marker" && strokeFuture.length > 0;
+
+  useEffect(() => {
+    if (phase !== "marker") return;
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      const key = e.key.toLowerCase();
+      if (key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undoStrokes();
+      } else if ((key === "z" && e.shiftKey) || key === "y") {
+        e.preventDefault();
+        redoStrokes();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [phase, undoStrokes, redoStrokes]);
+
+  const goDraw = () => {
+    if (turning) return;
+    setPhase("marker");
+  };
+  const goPoem = () => {
+    if (turning) return;
+    setPhase("redact");
+  };
+
+  const canClear = strokes.length > 0 || redacted.size > 0;
 
   return (
-    <main className="h-dvh overflow-hidden flex flex-col items-center px-6 py-4 sm:py-6">
+    <main className="h-dvh overflow-hidden flex flex-col items-center px-6 py-4 sm:py-6 page-stage">
       {/* Header */}
       <header className="w-full max-w-[720px] flex items-center justify-between mb-3 shrink-0">
         <span className="caption">Blackout Poetry</span>
@@ -328,7 +498,7 @@ export function Poem() {
       <PaperCard ref={cardRef}>
         <div
           ref={bodyRef}
-          className={`relative h-full p-6 sm:p-10 overflow-hidden flex flex-col ${
+          className={`relative h-full p-6 sm:p-10 overflow-hidden flex flex-col phase-${phase} ${
             Number.isFinite(visibleWordCount) ? "justify-center" : "justify-start"
           } ${painting ? "painting" : ""}`}
           style={{
@@ -337,10 +507,10 @@ export function Poem() {
             lineHeight: 1.75,
             color: "var(--ink)",
           }}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
+          onPointerDown={phase === "redact" ? onPointerDown : undefined}
+          onPointerMove={phase === "redact" ? onPointerMove : undefined}
+          onPointerUp={phase === "redact" ? onPointerUp : undefined}
+          onPointerCancel={phase === "redact" ? onPointerUp : undefined}
         >
           {/* Body text */}
           {loading && !excerpt && (
@@ -372,15 +542,23 @@ export function Poem() {
                 }
                 if (t.idx >= visibleWordCount) return null;
                 const isR = redacted.has(t.idx);
-                const isHovered = hoveredIdx === t.idx;
+                const isHovered = phase === "redact" && hoveredIdx === t.idx;
                 return (
                   <span
                     key={i}
                     data-word-idx={t.idx}
                     className={`word ${isR ? "is-redacted" : ""} ${isHovered ? "is-hover-preview" : ""}`}
                     style={{ fontStyle: t.italic ? "italic" : "normal" }}
-                    onPointerEnter={() => setHoveredIdx(t.idx)}
-                    onPointerLeave={() => setHoveredIdx(null)}
+                    onPointerEnter={
+                      phase === "redact"
+                        ? () => setHoveredIdx(t.idx)
+                        : undefined
+                    }
+                    onPointerLeave={
+                      phase === "redact"
+                        ? () => setHoveredIdx(null)
+                        : undefined
+                    }
                   >
                     {t.text}
                   </span>
@@ -388,7 +566,109 @@ export function Poem() {
               })}
             </p>
           )}
+
+          {/* Marker drawing layer */}
+          <MarkerCanvas
+            active={phase === "marker"}
+            color={markerColor}
+            strokes={strokes}
+            onStrokesChange={commitStrokes}
+          />
         </div>
+
+        {/* Marker palette — only visible during marker phase */}
+        {phase === "marker" && (
+          <aside className="palette" aria-label="Marker color palette">
+            <span className="palette-label">Marker</span>
+            {MARKER_PALETTE.map((p, i) => (
+              <button
+                key={p.color}
+                type="button"
+                className="swatch"
+                aria-label={p.name}
+                aria-pressed={p.color === markerColor}
+                onClick={() => setMarkerColor(p.color)}
+                style={
+                  {
+                    ["--swatch-color" as string]: p.color,
+                    ["--swatch-delay" as string]: `${i * 30}ms`,
+                  } as React.CSSProperties
+                }
+              />
+            ))}
+            <div className="palette-divider" />
+            <button
+              type="button"
+              className="palette-icon-btn"
+              data-label="Undo"
+              onClick={undoStrokes}
+              disabled={!canUndo}
+              aria-label="Undo"
+            >
+              <ArrowUUpLeft size={14} weight="regular" />
+            </button>
+            <button
+              type="button"
+              className="palette-icon-btn"
+              data-label="Redo"
+              onClick={redoStrokes}
+              disabled={!canRedo}
+              aria-label="Redo"
+            >
+              <ArrowUUpRight size={14} weight="regular" />
+            </button>
+          </aside>
+        )}
+
+        {/* Previous-page snapshot curling away */}
+        {prevSnapshot && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            aria-hidden
+            alt=""
+            src={prevSnapshot}
+            className="page-curl-out"
+            onAnimationEnd={handleCurlEnd}
+          />
+        )}
+
+        {/* Exported page lifts off and fades */}
+        {exportFloatSrc && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            aria-hidden
+            alt=""
+            src={exportFloatSrc}
+            className="export-float"
+            onAnimationEnd={() => setExportFloatSrc(null)}
+          />
+        )}
+
+        {/* Arrow nav — swap modes (CaretRight enters draw, CaretLeft exits) */}
+        {phase === "redact" && (
+          <button
+            type="button"
+            className="arrow-nav right"
+            onClick={goDraw}
+            disabled={!excerpt || turning}
+            aria-label="Switch to draw mode"
+          >
+            <span className="arrow-label">Draw</span>
+            <CaretRight size={18} weight="regular" />
+          </button>
+        )}
+        {phase === "marker" && (
+          <button
+            type="button"
+            className="arrow-nav left"
+            onClick={goPoem}
+            disabled={!excerpt || turning}
+            aria-label="Back to poem"
+          >
+            <span className="arrow-label">Poem</span>
+            <CaretLeft size={18} weight="regular" />
+          </button>
+        )}
       </PaperCard>
 
       {/* Controls */}
@@ -397,7 +677,7 @@ export function Poem() {
           type="button"
           className="btn"
           onClick={fetchPage}
-          disabled={loading}
+          disabled={loading || turning}
         >
           {loading ? "Turning page…" : "Find a different page"}
         </button>
@@ -405,23 +685,26 @@ export function Poem() {
           type="button"
           className="btn"
           onClick={clearAll}
-          disabled={redacted.size === 0}
+          disabled={!canClear}
         >
-          Clear
+          Clear all
         </button>
         <button
           type="button"
           className="btn"
           data-variant="primary"
+          data-state={justSaved ? "saved" : undefined}
           onClick={handleExport}
-          disabled={exporting || !excerpt}
+          disabled={exporting || !excerpt || justSaved}
         >
-          {exporting ? "Exporting…" : "Export PNG"}
+          {justSaved ? "✓ Saved" : exporting ? "Exporting…" : "Export"}
         </button>
       </div>
 
       <footer className="mt-3 caption shrink-0" style={{ opacity: 0.5 }}>
-        Click or drag across words to black them out
+        {phase === "redact"
+          ? "Click or drag across words to black them out"
+          : "Draw on the paper · pick a color from the palette"}
       </footer>
     </main>
   );
