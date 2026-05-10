@@ -24,13 +24,18 @@ export function tokenize(text: string): Token[] {
         inItalic = !inItalic;
         wordText = wordText.slice(1);
       }
-      // Check for trailing underscore - toggles italic state
-      if (wordText.endsWith("_")) {
-        inItalic = !inItalic;
-        wordText = wordText.slice(0, -1);
-      }
       
-      tokens.push({ kind: "word", text: wordText, idx: wordIdx++, italic: inItalic });
+      // Check for trailing underscore - remove it and toggle italic state for subsequent words
+      if (wordText.endsWith("_")) {
+        wordText = wordText.slice(0, -1);
+        // The word itself is italic (since it's inside the span)
+        tokens.push({ kind: "word", text: wordText, idx: wordIdx++, italic: inItalic });
+        // Toggle state for words after this one
+        inItalic = !inItalic;
+      } else {
+        // The word itself is italic if we're in an italic span
+        tokens.push({ kind: "word", text: wordText, idx: wordIdx++, italic: inItalic });
+      }
     }
   }
   return tokens;
