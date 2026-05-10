@@ -57,12 +57,6 @@ body {
 }
 .word.is-redacted {
   color: transparent;
-  /* Pull the word tight — the bar extends out to eat the inter-word space */
-  margin-left: -0.22em;
-  padding-left: 0.22em;
-  margin-right: -0.22em;
-  padding-right: 0.22em;
-  /* Keep z stacking so bars overlap neighbour whitespace */
   position: relative;
   z-index: 1;
 }
