@@ -206,7 +206,7 @@ body {
   to   { opacity: 1; }
 }
 
-/* Export float — duplicate page lifts and fades away, original stays put */
+/* Export float — duplicate page shrinks, lifts, hovers, then fades */
 .export-float {
   position: absolute;
   inset: 0;
@@ -215,13 +215,28 @@ body {
   border-radius: inherit;
   pointer-events: none;
   z-index: 45;
-  animation: exportFloat 900ms var(--ease-out-quart) forwards;
+  transform-origin: 50% 50%;
+  animation: exportFloat 1500ms var(--ease-out-quart) forwards;
   will-change: transform, opacity;
-  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.18));
+  filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.22));
 }
 @keyframes exportFloat {
-  0%   { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-72px) scale(1.03); }
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  28% {
+    opacity: 1;
+    transform: translateY(-72px) scale(0.62);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-80px) scale(0.62);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-92px) scale(0.6);
+  }
 }
 
 /* Export button success state */
