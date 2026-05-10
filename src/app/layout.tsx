@@ -26,6 +26,20 @@ export const metadata: Metadata = {
   title: "Blackout Poetry",
   description:
     "Redact pages from public-domain classics into your own blackout poetry.",
+  openGraph: {
+    images: [
+      {
+        url: "/PreviewImage.png",
+        width: 1200,
+        height: 630,
+        alt: "Blackout Poetry",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["/PreviewImage.png"],
+  },
 };
 
 export default function RootLayout({

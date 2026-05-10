@@ -192,13 +192,106 @@ export function Poem() {
     if (!cardRef.current) return;
     setExporting(true);
     try {
-      const { toPng } = await import("html-to-image");
-      const dataUrl = await toPng(cardRef.current, {
-        pixelRatio: 2,
-        cacheBust: true,
-        backgroundColor: "transparent",
-        skipFonts: false,
+      const card = cardRef.current;
+      const dpr = 2;
+      const W = Math.round(card.offsetWidth * dpr);
+      const H = Math.round(card.offsetHeight * dpr);
+
+      // Synchronously snapshot every WebGL canvas before any async work.
+      // WebGL uses preserveDrawingBuffer=false by default, so pixels are only
+      // available in the same frame — grab them now before awaiting anything.
+      const canvasSnapshots = Array.from(
+        card.querySelectorAll<HTMLCanvasElement>("canvas"),
+      ).map((canvas) => {
+        const parentStyle = getComputedStyle(canvas.parentElement!);
+        let dataUrl: string | null = null;
+        try {
+          dataUrl = canvas.toDataURL("image/png");
+        } catch {
+          /* tainted / blank — will be skipped */
+        }
+        return {
+          dataUrl,
+          blendMode: parentStyle.mixBlendMode || "normal",
+          opacity: parseFloat(parentStyle.opacity) || 1,
+        };
       });
+
+      const loadImg = (src: string) =>
+        new Promise<HTMLImageElement>((res, rej) => {
+          const img = new Image();
+          img.onload = () => res(img);
+          img.onerror = rej;
+          img.src = src;
+        });
+
+      // Build the composite canvas.
+      const output = document.createElement("canvas");
+      output.width = W;
+      output.height = H;
+      const ctx = output.getContext("2d")!;
+
+      // 1. Paper base colour (CSS background on the card element).
+      ctx.fillStyle = getComputedStyle(card).backgroundColor || "#ebeae9";
+      ctx.fillRect(0, 0, W, H);
+
+      // 2. PaperTexture canvas (first canvas, sits below the text at z-index 0).
+      const textureSnap = canvasSnapshots[0];
+      if (textureSnap?.dataUrl) {
+        const img = await loadImg(textureSnap.dataUrl);
+        ctx.save();
+        ctx.globalAlpha = textureSnap.opacity;
+        if (textureSnap.blendMode !== "normal")
+          ctx.globalCompositeOperation =
+            textureSnap.blendMode as GlobalCompositeOperation;
+        ctx.drawImage(img, 0, 0, W, H);
+        ctx.restore();
+      }
+
+      // 3. Text / blackout layer — capture only the content wrapper div
+      //    (card.children[1] = <div class="relative z-10 h-full">). That div
+      //    has no background of its own, so the output is transparent except
+      //    for text and redaction marks.
+      const { toPng } = await import("html-to-image");
+      const contentWrapper = card.children[1] as HTMLElement | null;
+      if (contentWrapper) {
+        const textUrl = await toPng(contentWrapper, {
+          pixelRatio: dpr,
+          cacheBust: true,
+          backgroundColor: "transparent",
+          skipFonts: false,
+        });
+        const textImg = await loadImg(textUrl);
+        ctx.drawImage(textImg, 0, 0, W, H);
+      }
+
+      // 4. HalftoneDots canvases (above text: z-index 19 multiply, z-index 20 screen).
+      for (let i = 1; i < canvasSnapshots.length; i++) {
+        const snap = canvasSnapshots[i];
+        if (!snap?.dataUrl) continue;
+        const img = await loadImg(snap.dataUrl);
+        ctx.save();
+        ctx.globalAlpha = snap.opacity;
+        if (snap.blendMode !== "normal")
+          ctx.globalCompositeOperation =
+            snap.blendMode as GlobalCompositeOperation;
+        ctx.drawImage(img, 0, 0, W, H);
+        ctx.restore();
+      }
+
+      // 5. Vignette (approximates the CSS radial-gradient multiply overlay).
+      ctx.save();
+      ctx.globalCompositeOperation = "multiply";
+      const outerR = Math.sqrt((W / 2) ** 2 + (H / 2) ** 2);
+      const innerR = outerR * 0.55;
+      const vig = ctx.createRadialGradient(W / 2, H / 2, innerR, W / 2, H / 2, outerR);
+      vig.addColorStop(0, "rgba(200,190,179,0)");
+      vig.addColorStop(1, "rgba(200,190,179,0.12)");
+      ctx.fillStyle = vig;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      const dataUrl = output.toDataURL("image/png");
       const a = document.createElement("a");
       a.href = dataUrl;
       a.download = `blackout-poem-${Date.now()}.png`;
