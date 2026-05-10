@@ -378,6 +378,7 @@ export function Poem() {
                     key={i}
                     data-word-idx={t.idx}
                     className={`word ${isR ? "is-redacted" : ""} ${isHovered ? "is-hover-preview" : ""}`}
+                    style={{ fontStyle: t.italic ? "italic" : "normal" }}
                     onPointerEnter={() => setHoveredIdx(t.idx)}
                     onPointerLeave={() => setHoveredIdx(null)}
                   >
