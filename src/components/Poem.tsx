@@ -72,7 +72,13 @@ export function Poem() {
       requestAnimationFrame(() => {
         if (!bodyRef.current || !paragraphRef.current) return;
         const containerRect = bodyRef.current.getBoundingClientRect();
-        const maxBottom = containerRect.bottom;
+        const cs = getComputedStyle(bodyRef.current);
+        const paddingBottom = parseFloat(cs.paddingBottom) || 0;
+        const lineHeight = parseFloat(cs.lineHeight) || 0;
+        // Stay within the content box, with a half-line buffer so descenders
+        // don't kiss the padding edge.
+        const maxBottom =
+          containerRect.bottom - paddingBottom - lineHeight * 0.5;
         const spans = paragraphRef.current.querySelectorAll<HTMLElement>(
           "[data-word-idx]",
         );
@@ -213,7 +219,14 @@ export function Poem() {
       <header className="w-full max-w-[720px] flex items-center justify-between mb-3 shrink-0">
         <span className="caption">Blackout Poetry</span>
         <span className="caption text-right">
-          Project Gutenberg · English classics
+          {excerpt ? (
+            <>
+              <span>{excerpt.title}</span>
+              <span style={{ opacity: 0.55 }}> · {excerpt.author}</span>
+            </>
+          ) : (
+            "Project Gutenberg · English classics"
+          )}
         </span>
       </header>
 
@@ -221,7 +234,9 @@ export function Poem() {
       <PaperCard ref={cardRef}>
         <div
           ref={bodyRef}
-          className={`relative h-full p-6 sm:p-10 overflow-hidden ${painting ? "painting" : ""}`}
+          className={`relative h-full p-6 sm:p-10 overflow-hidden flex flex-col ${
+            Number.isFinite(visibleWordCount) ? "justify-center" : "justify-start"
+          } ${painting ? "painting" : ""}`}
           style={{
             fontFamily: "var(--font-pp-writer), Georgia, serif",
             fontSize: "16px",
@@ -233,18 +248,6 @@ export function Poem() {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
-          {/* Attribution on the page */}
-          {excerpt && (
-            <div
-              className="caption mb-4"
-              style={{ opacity: 0.55 }}
-            >
-              From <span style={{ fontStyle: "normal" }}>{excerpt.title}</span>
-              {" · "}
-              {excerpt.author}
-            </div>
-          )}
-
           {/* Body text */}
           {loading && !excerpt && (
             <div className="caption" style={{ opacity: 0.6 }}>
