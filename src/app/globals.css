@@ -59,6 +59,13 @@ body {
   color: transparent;
   position: relative;
   z-index: 1;
+  /* Sync text hide with the bar sweep so there's no bright flash
+     between color going transparent and the bar covering it. */
+  animation: inkHide 220ms var(--ease-out-quart) both;
+}
+@keyframes inkHide {
+  from { color: var(--ink); }
+  to   { color: transparent; }
 }
 .word.is-redacted::after {
   content: "";
@@ -84,6 +91,7 @@ body {
   .phase-redact .word.is-redacted:hover {
     color: var(--ink);
     transition: none;
+    animation: none;
   }
   .phase-redact .word.is-redacted:hover::after {
     opacity: 0.70;
@@ -118,6 +126,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .word.is-redacted,
   .word.is-redacted::after {
     animation: none;
   }
