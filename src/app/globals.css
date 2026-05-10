@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #f3ead3;
+  --paper-edge: #e6d9b8;
+  --ink: #1a1714;
+  --bg: #d9cfb6;
+  --bg-deep: #c9bfa6;
+  --redact: #0b0a08;
+
+  --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-bg: var(--bg);
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at 50% 0%, #e4d8b8 0%, var(--bg) 55%, var(--bg-deep) 100%);
+  background-attachment: fixed;
+}
+
+/* Utility: all-caps mono caption */
+.caption {
+  font-family: var(--font-pt-mono), ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  color: color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+/* Selection disabled while dragging paint */
+.painting,
+.painting * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Word redaction bar */
+.word {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+  padding: 0 1px;
+  transition: color 180ms ease;
+}
+.word.is-redacted {
+  color: transparent;
+}
+.word.is-redacted::after {
+  content: "";
+  position: absolute;
+  inset: 0.06em -0.05em 0.04em -0.05em;
+  background: var(--redact);
+  border-radius: 1px;
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.6),
+    inset 0 0 2px rgba(255, 255, 255, 0.04);
+  transform-origin: left center;
+  animation: paint 220ms var(--ease-out-quart) both;
+  /* Subtle irregular edge for marker feel */
+  clip-path: polygon(
+    0.5% 8%, 99.5% 4%, 99.7% 96%, 0.3% 94%
+  );
+}
+
+@keyframes paint {
+  from { transform: scaleX(0); opacity: 0.8; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .word.is-redacted::after {
+    animation: none;
+  }
+  .word { transition: none; }
+}
+
+/* Button styles — understated, Archivo */
+.btn {
+  font-family: var(--font-archivo), system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+  background: color-mix(in srgb, var(--paper) 80%, transparent);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 180ms ease, border-color 180ms ease, transform 180ms var(--ease-out-quart);
+  backdrop-filter: blur(4px);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover {
+    background: color-mix(in srgb, var(--ink) 8%, var(--paper));
+    border-color: color-mix(in srgb, var(--ink) 45%, transparent);
+  }
+}
+.btn:active { transform: translateY(1px); }
+.btn[data-variant="primary"] {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn[data-variant="primary"]:hover {
+    background: color-mix(in srgb, var(--ink) 85%, #000);
+  }
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Card entrance */
+.card-enter {
+  animation: cardIn 600ms var(--ease-out-expo) both;
+}
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(12px) rotate(-0.3deg); }
+  to   { opacity: 1; transform: translateY(0) rotate(-0.3deg); }
+}
