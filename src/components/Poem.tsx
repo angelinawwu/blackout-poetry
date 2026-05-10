@@ -11,7 +11,7 @@ import { PaperCard } from "./PaperCard";
 import { MarkerCanvas, type Stroke } from "./MarkerCanvas";
 import { tokenize } from "@/lib/tokenize";
 import type { BookExcerpt } from "@/data/fallback-books";
-import { CaretRight, CaretLeft } from "@phosphor-icons/react";
+import { CaretRight, CaretLeft, ArrowUUpLeft, ArrowUUpRight } from "@phosphor-icons/react";
 import { toPng } from "html-to-image";
 
 type DragState = {
@@ -49,6 +49,8 @@ export function Poem() {
     MARKER_PALETTE[0].color,
   );
   const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [strokeHistory, setStrokeHistory] = useState<Stroke[][]>([]);
+  const [strokeFuture, setStrokeFuture] = useState<Stroke[][]>([]);
   const [turning, setTurning] = useState(false);
   const [prevSnapshot, setPrevSnapshot] = useState<string | null>(null);
   const [exportFloatSrc, setExportFloatSrc] = useState<string | null>(null);
@@ -65,12 +67,43 @@ export function Poem() {
     touched: new Set(),
   });
 
+  const strokesRef = useRef<Stroke[]>([]);
+  strokesRef.current = strokes;
+
   const loadExcerpt = useCallback(async () => {
     const res = await fetch("/api/page", { cache: "no-store" });
     const data = (await res.json()) as BookExcerpt;
     setExcerpt(data);
     setRedacted(new Set());
     setStrokes([]);
+    setStrokeHistory([]);
+    setStrokeFuture([]);
+  }, []);
+
+  const commitStrokes = useCallback((next: Stroke[]) => {
+    setStrokeHistory((h) => [...h, strokesRef.current]);
+    setStrokeFuture([]);
+    setStrokes(next);
+  }, []);
+
+  const undoStrokes = useCallback(() => {
+    setStrokeHistory((h) => {
+      if (h.length === 0) return h;
+      const prev = h[h.length - 1];
+      setStrokeFuture((f) => [...f, strokesRef.current]);
+      setStrokes(prev);
+      return h.slice(0, -1);
+    });
+  }, []);
+
+  const redoStrokes = useCallback(() => {
+    setStrokeFuture((f) => {
+      if (f.length === 0) return f;
+      const next = f[f.length - 1];
+      setStrokeHistory((h) => [...h, strokesRef.current]);
+      setStrokes(next);
+      return f.slice(0, -1);
+    });
   }, []);
 
   const excerptRef = useRef<BookExcerpt | null>(null);
@@ -408,9 +441,30 @@ export function Poem() {
   };
 
   const clearAll = () => {
-    if (phase === "marker") setStrokes([]);
-    else setRedacted(new Set());
+    setRedacted(new Set());
+    if (strokesRef.current.length > 0) commitStrokes([]);
   };
+
+  const canUndo = phase === "marker" && strokeHistory.length > 0;
+  const canRedo = phase === "marker" && strokeFuture.length > 0;
+
+  useEffect(() => {
+    if (phase !== "marker") return;
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      const key = e.key.toLowerCase();
+      if (key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undoStrokes();
+      } else if ((key === "z" && e.shiftKey) || key === "y") {
+        e.preventDefault();
+        redoStrokes();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [phase, undoStrokes, redoStrokes]);
 
   const goDraw = () => {
     if (turning) return;
@@ -421,8 +475,7 @@ export function Poem() {
     setPhase("redact");
   };
 
-  const canClear =
-    phase === "marker" ? strokes.length > 0 : redacted.size > 0;
+  const canClear = strokes.length > 0 || redacted.size > 0;
 
   return (
     <main className="h-dvh overflow-hidden flex flex-col items-center px-6 py-4 sm:py-6 page-stage">
@@ -519,7 +572,7 @@ export function Poem() {
             active={phase === "marker"}
             color={markerColor}
             strokes={strokes}
-            onStrokesChange={setStrokes}
+            onStrokesChange={commitStrokes}
           />
         </div>
 
@@ -543,6 +596,27 @@ export function Poem() {
                 }
               />
             ))}
+            <div className="palette-divider" />
+            <button
+              type="button"
+              className="palette-icon-btn"
+              data-label="Undo"
+              onClick={undoStrokes}
+              disabled={!canUndo}
+              aria-label="Undo"
+            >
+              <ArrowUUpLeft size={14} weight="regular" />
+            </button>
+            <button
+              type="button"
+              className="palette-icon-btn"
+              data-label="Redo"
+              onClick={redoStrokes}
+              disabled={!canRedo}
+              aria-label="Redo"
+            >
+              <ArrowUUpRight size={14} weight="regular" />
+            </button>
           </aside>
         )}
 
@@ -613,7 +687,7 @@ export function Poem() {
           onClick={clearAll}
           disabled={!canClear}
         >
-          {phase === "marker" ? "Clear marks" : "Clear"}
+          Clear all
         </button>
         <button
           type="button"
@@ -623,7 +697,7 @@ export function Poem() {
           onClick={handleExport}
           disabled={exporting || !excerpt || justSaved}
         >
-          {justSaved ? "✓ Saved" : exporting ? "Exporting…" : "Export PNG"}
+          {justSaved ? "✓ Saved" : exporting ? "Exporting…" : "Export"}
         </button>
       </div>
 
