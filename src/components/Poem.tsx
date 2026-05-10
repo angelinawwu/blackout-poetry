@@ -590,7 +590,7 @@ export function Poem() {
                 onClick={() => setMarkerColor(p.color)}
                 style={
                   {
-                    background: p.color,
+                    ["--swatch-color" as string]: p.color,
                     ["--swatch-delay" as string]: `${i * 30}ms`,
                   } as React.CSSProperties
                 }

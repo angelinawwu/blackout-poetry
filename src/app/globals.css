@@ -89,9 +89,11 @@ body {
 /* Peek under blackout on hover (pointer devices only, redact phase only) */
 @media (hover: hover) and (pointer: fine) {
   .phase-redact .word.is-redacted:hover {
-    color: var(--ink);
+    /* !important beats the inkHide animation's fill value.
+       Avoid overriding `animation` here — doing so would cause `paint`
+       to replay on unhover, flashing the text. */
+    color: var(--ink) !important;
     transition: none;
-    animation: none;
   }
   .phase-redact .word.is-redacted:hover::after {
     opacity: 0.70;
@@ -333,7 +335,8 @@ body {
   cursor: pointer;
   padding: 0;
   position: relative;
-  transition: transform 180ms var(--ease-out-quart);
+  background: var(--swatch-color);
+  transition: none;
   animation: swatchIn 280ms var(--ease-out-quart) both;
   animation-delay: var(--swatch-delay, 0ms);
 }
@@ -346,7 +349,10 @@ body {
   outline-offset: 2px;
 }
 @media (hover: hover) and (pointer: fine) {
-  .swatch:hover { transform: scale(1.1); }
+  /* Fade just the fill color, not the border. */
+  .swatch:hover {
+    background: color-mix(in srgb, var(--swatch-color) 70%, transparent);
+  }
 }
 
 /* Palette divider */
