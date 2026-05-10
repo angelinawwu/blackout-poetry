@@ -60,19 +60,19 @@ export const PaperCard = forwardRef<HTMLDivElement, Props>(function PaperCard(
         <PaperTexture
           width={size.w}
           height={size.h}
-          colorBack="#f3f0e9"
-          colorFront="#e3dccb"
-          contrast={0.32}
-          roughness={0.55}
-          fiber={0.45}
-          fiberSize={0.22}
-          crumples={0.18}
+          colorBack="#ffffff"
+          colorFront="#e6e3dc"
+          contrast={0.52}
+          roughness={0.75}
+          fiber={0.35}
+          fiberSize={0.42}
+          crumples={0.58}
           crumpleSize={0.5}
-          folds={0.25}
-          foldCount={3}
-          drops={0.08}
+          folds={0.95}
+          foldCount={5}
+          drops={0.28}
           fade={0}
-          seed={4.2}
+          seed={4.5}
           scale={0.9}
           fit="cover"
           style={{ width: "100%", height: "100%", display: "block" }}
@@ -82,13 +82,13 @@ export const PaperCard = forwardRef<HTMLDivElement, Props>(function PaperCard(
       {/* Content */}
       <div className="relative z-10 h-full">{children}</div>
 
-      {/* Halftone dots on top — tiny speckle, low opacity, multiply */}
+      {/* Halftone speckle — tiny dots, multiply, subtle paper grain */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 overflow-hidden"
         style={{
           borderRadius: "inherit",
-          zIndex: 20,
+          zIndex: 19,
           mixBlendMode: "multiply",
           opacity: 0.22,
         }}
@@ -97,8 +97,8 @@ export const PaperCard = forwardRef<HTMLDivElement, Props>(function PaperCard(
           width={size.w}
           height={size.h}
           image={FLAT_PAPER_PX}
-          colorBack="#eeeae1"
-          colorFront="#2b2419"
+          colorBack="#eaeae9"
+          colorFront="#222120"
           originalColors={false}
           type="classic"
           grid="square"
@@ -106,6 +106,38 @@ export const PaperCard = forwardRef<HTMLDivElement, Props>(function PaperCard(
           size={0}
           radius={0.9}
           contrast={0.5}
+          grainMixer={0}
+          grainOverlay={0}
+          grainSize={0.5}
+          fit="cover"
+          style={{ width: "100%", height: "100%", display: "block" }}
+        />
+      </div>
+
+      {/* Halftone print layer — above text, screen blend punches dots into ink */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+        style={{
+          borderRadius: "inherit",
+          zIndex: 20,
+          mixBlendMode: "screen",
+          opacity: 0.5,
+        }}
+      >
+        <HalftoneDots
+          width={size.w}
+          height={size.h}
+          image={FLAT_PAPER_PX}
+          colorBack="#0c0b0a"
+          colorFront="#cac7c0"
+          originalColors={false}
+          type="classic"
+          grid="square"
+          inverted={false}
+          size={0.3}
+          radius={0.85}
+          contrast={0.6}
           grainMixer={0}
           grainOverlay={0}
           grainSize={0.5}
@@ -122,7 +154,7 @@ export const PaperCard = forwardRef<HTMLDivElement, Props>(function PaperCard(
           borderRadius: "inherit",
           zIndex: 21,
           background:
-            "radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(70,50,20,0.12) 100%)",
+            "radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(200, 190, 179, 0.12) 100%)",
           mixBlendMode: "multiply",
         }}
       />
