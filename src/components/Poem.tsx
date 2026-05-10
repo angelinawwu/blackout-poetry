@@ -406,7 +406,7 @@ export function Poem() {
           onClick={clearAll}
           disabled={redacted.size === 0}
         >
-          Clear marks
+          Clear
         </button>
         <button
           type="button"
