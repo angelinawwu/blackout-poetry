@@ -17,22 +17,20 @@ export function tokenize(text: string): Token[] {
     if (/^\s+$/.test(p)) {
       tokens.push({ kind: "space", text: p });
     } else {
-      // Check if this word is wrapped in italic delimiters
       let wordText = p;
-      let isItalic = inItalic;
       
-      // Check for leading underscore
+      // Check for leading underscore - toggles italic state
       if (wordText.startsWith("_")) {
-        isItalic = !isItalic;
+        inItalic = !inItalic;
         wordText = wordText.slice(1);
       }
-      // Check for trailing underscore
+      // Check for trailing underscore - toggles italic state
       if (wordText.endsWith("_")) {
-        isItalic = !isItalic;
+        inItalic = !inItalic;
         wordText = wordText.slice(0, -1);
       }
       
-      tokens.push({ kind: "word", text: wordText, idx: wordIdx++, italic: isItalic });
+      tokens.push({ kind: "word", text: wordText, idx: wordIdx++, italic: inItalic });
     }
   }
   return tokens;
