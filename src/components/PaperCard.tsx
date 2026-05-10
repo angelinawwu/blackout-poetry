@@ -7,6 +7,7 @@ type Props = {
   children: React.ReactNode;
   width?: number;
   height?: number;
+  className?: string;
 };
 
 // 1x1 off-white PNG — drives HalftoneDots so we get uniform speckle.
@@ -14,7 +15,7 @@ const FLAT_PAPER_PX =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=";
 
 export const PaperCard = forwardRef<HTMLDivElement, Props>(function PaperCard(
-  { children },
+  { children, className = "" },
   ref,
 ) {
   const innerRef = useRef<HTMLDivElement | null>(null);
@@ -41,7 +42,7 @@ export const PaperCard = forwardRef<HTMLDivElement, Props>(function PaperCard(
         if (typeof ref === "function") ref(node);
         else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
       }}
-      className="relative isolate card-enter min-h-0"
+      className={`relative isolate card-enter min-h-0 ${className}`}
       style={{
         width: "min(640px, calc(100vw - 48px))",
         flex: "1 1 0%",
@@ -158,6 +159,9 @@ export const PaperCard = forwardRef<HTMLDivElement, Props>(function PaperCard(
           mixBlendMode: "multiply",
         }}
       />
+
+      {/* Page-turn shade — only visible while .paper-turn-* class is applied */}
+      <div aria-hidden className="turn-shade" />
     </div>
   );
 });

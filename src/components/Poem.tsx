@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { PaperCard } from "./PaperCard";
+import { MarkerCanvas, type Stroke } from "./MarkerCanvas";
 import { tokenize } from "@/lib/tokenize";
 import type { BookExcerpt } from "@/data/fallback-books";
 
@@ -19,6 +20,22 @@ type DragState = {
   touched: Set<number>;
 };
 
+type Phase = "redact" | "marker";
+type TurnState = "idle" | "out" | "in";
+
+const MARKER_PALETTE: { name: string; color: string }[] = [
+  { name: "Charcoal", color: "#2a2724" },
+  { name: "Oxblood", color: "#7a2a26" },
+  { name: "Ochre", color: "#b88a2a" },
+  { name: "Navy", color: "#1f3a5f" },
+  { name: "Sage", color: "#5b6e4a" },
+  { name: "Plum", color: "#5a3a55" },
+];
+
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" &&
+  window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
 export function Poem() {
   const [excerpt, setExcerpt] = useState<BookExcerpt | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,6 +43,14 @@ export function Poem() {
   const [exporting, setExporting] = useState(false);
   const [painting, setPainting] = useState(false);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [phase, setPhase] = useState<Phase>("redact");
+  const [markerColor, setMarkerColor] = useState<string>(
+    MARKER_PALETTE[0].color,
+  );
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [turn, setTurn] = useState<TurnState>("idle");
+  const [flashing, setFlashing] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const paragraphRef = useRef<HTMLParagraphElement | null>(null);
@@ -38,21 +63,51 @@ export function Poem() {
     touched: new Set(),
   });
 
+  const loadExcerpt = useCallback(async () => {
+    const res = await fetch("/api/page", { cache: "no-store" });
+    const data = (await res.json()) as BookExcerpt;
+    setExcerpt(data);
+    setRedacted(new Set());
+    setStrokes([]);
+  }, []);
+
+  const excerptRef = useRef<BookExcerpt | null>(null);
+  excerptRef.current = excerpt;
+
   const fetchPage = useCallback(async () => {
+    if (turn !== "idle") return;
     setLoading(true);
+    const hasExisting = excerptRef.current != null;
+    if (!hasExisting || prefersReducedMotion()) {
+      try {
+        await loadExcerpt();
+      } catch {
+        // swallow
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     try {
-      const res = await fetch("/api/page", { cache: "no-store" });
-      const data = (await res.json()) as BookExcerpt;
-      setExcerpt(data);
-      setRedacted(new Set());
+      // Curl out
+      setTurn("out");
+      await new Promise((r) => setTimeout(r, 280));
+      await loadExcerpt();
+      // Curl in
+      setTurn("in");
+      await new Promise((r) => setTimeout(r, 320));
     } catch {
       // swallow
     } finally {
+      setTurn("idle");
       setLoading(false);
     }
-  }, []);
+  }, [loadExcerpt, turn]);
 
+  const didInitRef = useRef(false);
   useEffect(() => {
+    if (didInitRef.current) return;
+    didInitRef.current = true;
     fetchPage();
   }, [fetchPage]);
 
@@ -260,6 +315,14 @@ export function Poem() {
           cacheBust: true,
           backgroundColor: "transparent",
           skipFonts: false,
+          // Skip the marker canvas — it's redrawn from the canvas snapshot
+          // loop below at correct alpha. html-to-image would double it.
+          filter: (node) => {
+            if (node instanceof HTMLElement) {
+              if (node.hasAttribute("data-marker-canvas")) return false;
+            }
+            return true;
+          },
         });
         const textImg = await loadImg(textUrl);
         ctx.drawImage(textImg, 0, 0, W, H);
@@ -298,6 +361,14 @@ export function Poem() {
       document.body.appendChild(a);
       a.click();
       a.remove();
+
+      // Feedback: flash overlay + button "Saved" state.
+      if (!prefersReducedMotion()) {
+        setFlashing(true);
+        window.setTimeout(() => setFlashing(false), 520);
+      }
+      setJustSaved(true);
+      window.setTimeout(() => setJustSaved(false), 1400);
     } catch (err) {
       console.error("Export failed", err);
     } finally {
@@ -305,10 +376,24 @@ export function Poem() {
     }
   };
 
-  const clearAll = () => setRedacted(new Set());
+  const clearAll = () => {
+    if (phase === "marker") setStrokes([]);
+    else setRedacted(new Set());
+  };
+
+  const togglePhase = () => {
+    if (turn !== "idle") return;
+    setPhase((p) => (p === "redact" ? "marker" : "redact"));
+  };
+
+  const turnClass =
+    turn === "out" ? "paper-turn-out" : turn === "in" ? "paper-turn-in" : "";
+
+  const canClear =
+    phase === "marker" ? strokes.length > 0 : redacted.size > 0;
 
   return (
-    <main className="h-dvh overflow-hidden flex flex-col items-center px-6 py-4 sm:py-6">
+    <main className="h-dvh overflow-hidden flex flex-col items-center px-6 py-4 sm:py-6 page-stage">
       {/* Header */}
       <header className="w-full max-w-[720px] flex items-center justify-between mb-3 shrink-0">
         <span className="caption">Blackout Poetry</span>
@@ -325,10 +410,10 @@ export function Poem() {
       </header>
 
       {/* Paper card */}
-      <PaperCard ref={cardRef}>
+      <PaperCard ref={cardRef} className={turnClass}>
         <div
           ref={bodyRef}
-          className={`relative h-full p-6 sm:p-10 overflow-hidden flex flex-col ${
+          className={`relative h-full p-6 sm:p-10 overflow-hidden flex flex-col phase-${phase} ${
             Number.isFinite(visibleWordCount) ? "justify-center" : "justify-start"
           } ${painting ? "painting" : ""}`}
           style={{
@@ -337,10 +422,10 @@ export function Poem() {
             lineHeight: 1.75,
             color: "var(--ink)",
           }}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
+          onPointerDown={phase === "redact" ? onPointerDown : undefined}
+          onPointerMove={phase === "redact" ? onPointerMove : undefined}
+          onPointerUp={phase === "redact" ? onPointerUp : undefined}
+          onPointerCancel={phase === "redact" ? onPointerUp : undefined}
         >
           {/* Body text */}
           {loading && !excerpt && (
@@ -372,15 +457,23 @@ export function Poem() {
                 }
                 if (t.idx >= visibleWordCount) return null;
                 const isR = redacted.has(t.idx);
-                const isHovered = hoveredIdx === t.idx;
+                const isHovered = phase === "redact" && hoveredIdx === t.idx;
                 return (
                   <span
                     key={i}
                     data-word-idx={t.idx}
                     className={`word ${isR ? "is-redacted" : ""} ${isHovered ? "is-hover-preview" : ""}`}
                     style={{ fontStyle: t.italic ? "italic" : "normal" }}
-                    onPointerEnter={() => setHoveredIdx(t.idx)}
-                    onPointerLeave={() => setHoveredIdx(null)}
+                    onPointerEnter={
+                      phase === "redact"
+                        ? () => setHoveredIdx(t.idx)
+                        : undefined
+                    }
+                    onPointerLeave={
+                      phase === "redact"
+                        ? () => setHoveredIdx(null)
+                        : undefined
+                    }
                   >
                     {t.text}
                   </span>
@@ -388,7 +481,44 @@ export function Poem() {
               })}
             </p>
           )}
+
+          {/* Marker drawing layer */}
+          <MarkerCanvas
+            active={phase === "marker"}
+            color={markerColor}
+            strokes={strokes}
+            onStrokesChange={setStrokes}
+          />
         </div>
+
+        {/* Marker palette — only visible during marker phase */}
+        {phase === "marker" && (
+          <aside className="palette" aria-label="Marker color palette">
+            <span className="palette-label">Marker</span>
+            {MARKER_PALETTE.map((p, i) => (
+              <button
+                key={p.color}
+                type="button"
+                className="swatch"
+                aria-label={p.name}
+                aria-pressed={p.color === markerColor}
+                onClick={() => setMarkerColor(p.color)}
+                style={
+                  {
+                    background: p.color,
+                    ["--swatch-delay" as string]: `${i * 30}ms`,
+                  } as React.CSSProperties
+                }
+              />
+            ))}
+          </aside>
+        )}
+
+        {/* Export flash overlay */}
+        <div
+          aria-hidden
+          className={`flash-overlay ${flashing ? "is-flashing" : ""}`}
+        />
       </PaperCard>
 
       {/* Controls */}
@@ -397,7 +527,7 @@ export function Poem() {
           type="button"
           className="btn"
           onClick={fetchPage}
-          disabled={loading}
+          disabled={loading || turn !== "idle"}
         >
           {loading ? "Turning page…" : "Find a different page"}
         </button>
@@ -405,23 +535,34 @@ export function Poem() {
           type="button"
           className="btn"
           onClick={clearAll}
-          disabled={redacted.size === 0}
+          disabled={!canClear}
         >
-          Clear
+          {phase === "marker" ? "Clear marks" : "Clear"}
         </button>
         <button
           type="button"
           className="btn"
           data-variant="primary"
+          data-state={justSaved ? "saved" : undefined}
           onClick={handleExport}
-          disabled={exporting || !excerpt}
+          disabled={exporting || !excerpt || justSaved}
         >
-          {exporting ? "Exporting…" : "Export PNG"}
+          {justSaved ? "✓ Saved" : exporting ? "Exporting…" : "Export PNG"}
+        </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={togglePhase}
+          disabled={!excerpt || turn !== "idle"}
+        >
+          {phase === "redact" ? "Done → Draw" : "Back to poem"}
         </button>
       </div>
 
       <footer className="mt-3 caption shrink-0" style={{ opacity: 0.5 }}>
-        Click or drag across words to black them out
+        {phase === "redact"
+          ? "Click or drag across words to black them out"
+          : "Draw on the paper · pick a color from the palette"}
       </footer>
     </main>
   );

@@ -77,6 +77,17 @@ body {
   clip-path: polygon(
     0% 1%, 100% 0%, 100% 100%, 0% 99%
   );
+  transition: opacity 200ms ease;
+}
+
+/* Peek under blackout on hover (pointer devices only, redact phase only) */
+@media (hover: hover) and (pointer: fine) {
+  .phase-redact .word.is-redacted:hover {
+    color: color-mix(in srgb, var(--ink) 75%, transparent);
+  }
+  .phase-redact .word.is-redacted:hover::after {
+    opacity: 0.45;
+  }
 }
 
 /* Hover preview for paint mode (not redacted) */
@@ -152,4 +163,143 @@ body {
 @keyframes cardIn {
   from { opacity: 0; transform: translateY(12px) rotate(-0.3deg); }
   to   { opacity: 1; transform: translateY(0) rotate(-0.3deg); }
+}
+
+/* Page perspective for turn animation */
+.page-stage {
+  perspective: 1600px;
+  perspective-origin: 50% 40%;
+}
+
+/* Page turn transition — runs in two halves driven by JS class swap */
+.paper-turn-out {
+  animation: turnOut 280ms cubic-bezier(.55, .085, .68, .53) forwards;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
+}
+.paper-turn-in {
+  animation: turnIn 320ms var(--ease-out-quart) forwards;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
+}
+@keyframes turnOut {
+  from { transform: rotate(-0.3deg) rotateY(0deg); opacity: 1; }
+  to   { transform: rotate(-0.3deg) rotateY(-78deg); opacity: 0.35; }
+}
+@keyframes turnIn {
+  from { transform: rotate(-0.3deg) rotateY(78deg); opacity: 0.35; }
+  to   { transform: rotate(-0.3deg) rotateY(0deg); opacity: 1; }
+}
+/* Shadow sweep overlay during turn */
+.paper-turn-out .turn-shade,
+.paper-turn-in .turn-shade {
+  opacity: 1;
+}
+.turn-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 22;
+  border-radius: inherit;
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0.32) 0%,
+    rgba(0, 0, 0, 0.05) 35%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 200ms ease;
+  mix-blend-mode: multiply;
+}
+
+/* Export flash overlay */
+.flash-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+  background: #ffffff;
+  border-radius: inherit;
+  opacity: 0;
+}
+.flash-overlay.is-flashing {
+  animation: flashPulse 520ms var(--ease-out-quart);
+}
+@keyframes flashPulse {
+  0%   { opacity: 0; }
+  18%  { opacity: 0.65; }
+  100% { opacity: 0; }
+}
+
+/* Export button success state */
+.btn[data-state="saved"] {
+  background: color-mix(in srgb, var(--ink) 78%, #2f6b3a) !important;
+  color: var(--paper);
+}
+
+/* Marker palette */
+.palette {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 14px);
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 10px;
+  background: color-mix(in srgb, var(--paper) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  border-radius: 4px;
+  backdrop-filter: blur(6px);
+  z-index: 25;
+  animation: paletteIn 240ms var(--ease-out-quart) both;
+}
+@keyframes paletteIn {
+  from { opacity: 0; transform: translate(8px, -50%); }
+  to   { opacity: 1; transform: translate(0, -50%); }
+}
+.palette-label {
+  font-family: var(--font-pt-mono), ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  margin-bottom: 2px;
+}
+.swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--ink) 30%, transparent);
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+  transition: transform 180ms var(--ease-out-quart);
+  animation: swatchIn 280ms var(--ease-out-quart) both;
+  animation-delay: var(--swatch-delay, 0ms);
+}
+@keyframes swatchIn {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.swatch[aria-pressed="true"] {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .swatch:hover { transform: scale(1.1); }
+}
+
+/* Hide redact-only hover preview while in marker phase */
+.phase-marker .word { cursor: default; }
+
+@media (prefers-reduced-motion: reduce) {
+  .paper-turn-out,
+  .paper-turn-in { animation: none !important; }
+  .flash-overlay.is-flashing { animation: none; }
+  .palette,
+  .swatch { animation: none; }
 }
