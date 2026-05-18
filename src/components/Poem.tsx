@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -32,6 +33,42 @@ const MARKER_PALETTE: { name: string; color: string }[] = [
   { name: "Green", color: "#22a06b" },
   { name: "Magenta", color: "#c026d3" },
 ];
+
+type WordProps = {
+  idx: number;
+  text: string;
+  italic?: boolean;
+  isRedacted: boolean;
+  isHovered: boolean;
+  interactive: boolean;
+  onEnter?: (idx: number) => void;
+  onLeave?: () => void;
+};
+
+const Word = memo(function Word({
+  idx,
+  text,
+  italic,
+  isRedacted,
+  isHovered,
+  interactive,
+  onEnter,
+  onLeave,
+}: WordProps) {
+  return (
+    <span
+      data-word-idx={idx}
+      className={`word ${isRedacted ? "is-redacted" : ""} ${
+        isHovered ? "is-hover-preview" : ""
+      }`}
+      style={{ fontStyle: italic ? "italic" : "normal" }}
+      onPointerEnter={interactive && onEnter ? () => onEnter(idx) : undefined}
+      onPointerLeave={interactive ? onLeave : undefined}
+    >
+      {text}
+    </span>
+  );
+});
 
 const prefersReducedMotion = () =>
   typeof window !== "undefined" &&
@@ -273,17 +310,17 @@ export function Poem() {
     if (!d.active || !d.mode) return;
     const idx = getWordIdxFromPoint(e.clientX, e.clientY);
     if (idx == null) return;
-    if (!d.moved && idx !== d.startIdx) d.moved = true;
-    if (d.moved && !d.touched.has(idx)) {
-      d.touched.add(idx);
-      applyToIdx(idx, d.mode);
-      // Also apply to startIdx on first movement so drag feels continuous.
+    if (!d.moved && idx !== d.startIdx) {
+      d.moved = true;
+      // Apply the start word once on first movement so the drag feels continuous.
       if (d.startIdx != null && !d.touched.has(d.startIdx)) {
         d.touched.add(d.startIdx);
         applyToIdx(d.startIdx, d.mode);
-      } else if (d.startIdx != null) {
-        applyToIdx(d.startIdx, d.mode);
       }
+    }
+    if (d.moved && !d.touched.has(idx)) {
+      d.touched.add(idx);
+      applyToIdx(idx, d.mode);
     }
   };
 
@@ -477,6 +514,9 @@ export function Poem() {
 
   const canClear = strokes.length > 0 || redacted.size > 0;
 
+  const handleWordEnter = useCallback((idx: number) => setHoveredIdx(idx), []);
+  const handleWordLeave = useCallback(() => setHoveredIdx(null), []);
+
   return (
     <main className="h-dvh overflow-hidden flex flex-col items-center px-3 sm:px-6 py-3 sm:py-6 page-stage">
       {/* Header */}
@@ -545,24 +585,17 @@ export function Poem() {
                 const isR = redacted.has(t.idx);
                 const isHovered = phase === "redact" && hoveredIdx === t.idx;
                 return (
-                  <span
+                  <Word
                     key={i}
-                    data-word-idx={t.idx}
-                    className={`word ${isR ? "is-redacted" : ""} ${isHovered ? "is-hover-preview" : ""}`}
-                    style={{ fontStyle: t.italic ? "italic" : "normal" }}
-                    onPointerEnter={
-                      phase === "redact"
-                        ? () => setHoveredIdx(t.idx)
-                        : undefined
-                    }
-                    onPointerLeave={
-                      phase === "redact"
-                        ? () => setHoveredIdx(null)
-                        : undefined
-                    }
-                  >
-                    {t.text}
-                  </span>
+                    idx={t.idx}
+                    text={t.text}
+                    italic={t.italic}
+                    isRedacted={isR}
+                    isHovered={isHovered}
+                    interactive={phase === "redact"}
+                    onEnter={handleWordEnter}
+                    onLeave={handleWordLeave}
+                  />
                 );
               })}
             </p>
