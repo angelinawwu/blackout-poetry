@@ -55,19 +55,11 @@ body {
   padding: 0 1px;
   transition: color 180ms ease;
 }
-.word.is-redacted {
-  color: transparent;
-  position: relative;
-  z-index: 1;
-  /* Sync text hide with the bar sweep so there's no bright flash
-     between color going transparent and the bar covering it. */
-  animation: inkHide 220ms var(--ease-out-quart) both;
-}
-@keyframes inkHide {
-  from { color: var(--ink); }
-  to   { color: transparent; }
-}
-.word.is-redacted::after {
+/* Redact bar — always-present pseudo so a CSS transition (not a
+   fresh-element animation) drives the sweep. Animations on a newly-
+   created ::after are unreliable on mobile under load — transitions are
+   not. */
+.word::after {
   content: "";
   position: absolute;
   /* Extend 0.22em past each edge to fill the inter-word gap */
@@ -77,21 +69,33 @@ body {
   box-shadow:
     0 0 0 0.5px rgba(0, 0, 0, 0.6),
     inset 0 0 2px rgba(255, 255, 255, 0.04);
+  transform: scaleX(0);
   transform-origin: left center;
-  animation: paint 220ms var(--ease-out-quart) both;
   /* Nearly-rectangular — tiny 1% vertical offset keeps the hand-drawn feel
      without creating a visible wedge where overlapping bars meet */
   clip-path: polygon(
     0% 1%, 100% 0%, 100% 100%, 0% 99%
   );
+  pointer-events: none;
+  will-change: transform;
+}
+.word.is-redacted {
+  color: transparent;
+  position: relative;
+  z-index: 1;
+  transition: color 180ms var(--ease-out-quart);
+}
+/* Transition only on the redacted state so the sweep plays when a word
+   becomes redacted, but hover preview toggling stays instant in both
+   directions. */
+.word.is-redacted::after {
+  transform: scaleX(1);
+  transition: transform 220ms var(--ease-out-quart);
 }
 
 /* Peek under blackout on hover (pointer devices only, redact phase only) */
 @media (hover: hover) and (pointer: fine) {
   .phase-redact .word.is-redacted:hover {
-    /* !important beats the inkHide animation's fill value.
-       Avoid overriding `animation` here — doing so would cause `paint`
-       to replay on unhover, flashing the text. */
     color: var(--ink) !important;
     transition: none;
   }
@@ -101,37 +105,25 @@ body {
   }
 }
 
-/* Hover preview for paint mode (not redacted) */
+/* Hover preview for paint mode (not redacted) — instant, no sweep */
 .word.is-hover-preview:not(.is-redacted)::after {
-  content: "";
-  position: absolute;
-  inset: 0.06em -0.22em 0.04em -0.22em;
   background: color-mix(in srgb, var(--redact) 25%, transparent);
-  border-radius: 1px;
-  clip-path: polygon(
-    0% 1%, 100% 0%, 100% 100%, 0% 99%
-  );
-  pointer-events: none;
+  transform: scaleX(1);
+  transition: none;
 }
 
-/* Hover preview for erase mode (already redacted) */
+/* Hover preview for erase mode (already redacted) — instant */
 .word.is-hover-preview.is-redacted {
   color: var(--ink);
+  transition: none;
 }
 .word.is-hover-preview.is-redacted::after {
   opacity: 0.4;
-}
-
-@keyframes paint {
-  from { transform: scaleX(0); }
-  to   { transform: scaleX(1); }
+  transition: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .word.is-redacted,
-  .word.is-redacted::after {
-    animation: none;
-  }
+  .word::after { transition: none; }
   .word { transition: none; }
 }
 
