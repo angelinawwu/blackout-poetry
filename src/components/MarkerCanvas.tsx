@@ -192,7 +192,6 @@ export const MarkerCanvas = forwardRef<MarkerCanvasHandle, Props>(
         onPointerMove={onPointerMove}
         onPointerUp={finishStroke}
         onPointerCancel={finishStroke}
-        onPointerLeave={finishStroke}
       >
         <canvas
           ref={canvasRef}
