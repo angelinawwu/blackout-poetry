@@ -478,11 +478,11 @@ export function Poem() {
   const canClear = strokes.length > 0 || redacted.size > 0;
 
   return (
-    <main className="h-dvh overflow-hidden flex flex-col items-center px-6 py-4 sm:py-6 page-stage">
+    <main className="h-dvh overflow-hidden flex flex-col items-center px-3 sm:px-6 py-3 sm:py-6 page-stage">
       {/* Header */}
-      <header className="w-full max-w-[720px] flex items-center justify-between mb-3 shrink-0">
-        <span className="caption">Blackout Poetry</span>
-        <span className="caption text-right">
+      <header className="w-full max-w-[720px] flex items-center justify-between mb-3 shrink-0 gap-3">
+        <span className="caption shrink-0">Blackout Poetry</span>
+        <span className="caption text-right truncate min-w-0">
           {excerpt ? (
             <>
               <span>{excerpt.title}</span>
@@ -498,7 +498,7 @@ export function Poem() {
       <PaperCard ref={cardRef}>
         <div
           ref={bodyRef}
-          className={`relative h-full p-6 sm:p-10 overflow-hidden flex flex-col phase-${phase} ${
+          className={`relative h-full p-5 sm:p-10 overflow-hidden flex flex-col phase-${phase} ${
             Number.isFinite(visibleWordCount) ? "justify-center" : "justify-start"
           } ${painting ? "painting" : ""}`}
           style={{
@@ -506,6 +506,7 @@ export function Poem() {
             fontSize: "16px",
             lineHeight: 1.75,
             color: "var(--ink)",
+            touchAction: phase === "redact" ? "none" : undefined,
           }}
           onPointerDown={phase === "redact" ? onPointerDown : undefined}
           onPointerMove={phase === "redact" ? onPointerMove : undefined}

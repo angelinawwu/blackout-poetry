@@ -293,8 +293,21 @@ body {
   font-size: 10px;
 }
 @media (max-width: 760px) {
-  .arrow-nav.right { left: auto; right: 6px; margin-left: 0; }
-  .arrow-nav.left  { right: auto; left: 6px; margin-right: 0; }
+  .arrow-nav {
+    top: auto;
+    bottom: 8px;
+    transform: none;
+    background: color-mix(in srgb, var(--paper) 85%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ink) 16%, transparent);
+    border-radius: 999px;
+    padding: 8px 14px;
+    backdrop-filter: blur(6px);
+    opacity: 1;
+  }
+  .arrow-nav.right { left: auto; right: 10px; margin-left: 0; }
+  .arrow-nav.left  { right: auto; left: 10px; margin-right: 0; }
+  .arrow-nav.right:hover:not(:disabled),
+  .arrow-nav.left:hover:not(:disabled) { transform: none; }
 }
 
 /* Marker palette */
@@ -410,6 +423,47 @@ body {
 
 /* Hide redact-only hover preview while in marker phase */
 .phase-marker .word { cursor: default; }
+
+/* Mobile palette — horizontal bar pinned above the bottom arrow nav */
+@media (max-width: 760px) {
+  .palette {
+    top: auto;
+    left: 50%;
+    bottom: 56px;
+    transform: translateX(-50%);
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    max-width: calc(100% - 20px);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  @keyframes paletteIn {
+    from { opacity: 0; transform: translate(-50%, 8px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+  }
+  .palette-label { display: none; }
+  .palette-divider {
+    width: 1px;
+    height: 18px;
+    margin: 0 2px;
+  }
+  .swatch {
+    width: 26px;
+    height: 26px;
+  }
+  @keyframes swatchIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .palette-icon-btn {
+    width: 30px;
+    height: 30px;
+  }
+  /* Hide tooltip on touch */
+  .palette-icon-btn::after { display: none; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .page-curl-out,

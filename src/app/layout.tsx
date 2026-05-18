@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Archivo, Cardo, PT_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -21,6 +21,14 @@ const ptMono = PT_Mono({
   variable: "--font-pt-mono",
   display: "swap",
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: "blackout poetry",

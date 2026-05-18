@@ -40,7 +40,7 @@ export const PaperCard = forwardRef<HTMLDivElement, Props>(function PaperCard(
       }}
       className={`relative isolate card-enter min-h-0 ${className}`}
       style={{
-        width: "min(640px, calc(100vw - 48px))",
+        width: "min(640px, calc(100vw - 24px))",
         flex: "1 1 0%",
         minHeight: 0,
         background: "var(--paper)",
