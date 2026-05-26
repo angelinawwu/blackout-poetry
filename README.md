@@ -1,6 +1,5 @@
 # ██ blackout ████ poetry ███
 
 █████ a ████ ██ ███ tiny ███ ████ web ███ ████ thing ████ where ████ you
-████ ████ borrow ████ words ███ ███ from ████ ████ classic ████ books,
-███████ ████ black █████ ██ ████ most ████ ███ of ████ ████ them ████ out,
-███ ██████ and ██████ ██ keep ███ ████ only ██ ████ ███ the ████ ██ ones ████ you ███ ██████ like ██
+████ ████ borrow ████ words ███ ███ from ████ ████ classic ████ books
+██ ██ ███ and ████ black █████ ██ ████ most ████ ███ of ████ ████ them ████ out
